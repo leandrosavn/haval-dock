@@ -3,130 +3,102 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Haval Dock — toolbar inferior (mockup)</title>
+<title>Haval Dock — toolbar inferior (mockup v2)</title>
 <style>
   :root{
-    --bg0:#08090b; --bg1:#11141a; --card:#161b24; --card2:#121722;
-    --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.13);
-    --txt:#eef2f8; --muted:#9099a8; --muted2:#5f6776;
-    --accent:#19e3b1; --accent2:#0bb69a; --accentSoft:#5ff0cf;
-    --glow:25,227,177; --onAccent:#04140f;
-    --radius:22px; --radius-sm:16px;
-    --shadow:0 20px 55px rgba(0,0,0,.6);
+    --bg0:#06090c; --card:#121722; --card2:#0e131b;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --txt:#eef4f8; --muted:#828c9c; --muted2:#5b6471;
+    --accent:#2de0f0; --green:#36e05a; --red:#ff4d4d;
+    --glow:45,224,240; --onAccent:#04161a;
+    --shadow:0 18px 50px rgba(0,0,0,.55);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%; background:#000; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; overflow:hidden;}
   #fit{position:fixed; inset:0; overflow:hidden; background:#000;}
   #stage{
     width:1920px; height:720px; position:absolute; top:0; left:0; transform-origin:top left; color:var(--txt);
-    background:
-      radial-gradient(1200px 620px at 80% -12%, rgba(var(--glow),.14), transparent 60%),
-      radial-gradient(900px 520px at 6% 120%, rgba(var(--glow),.09), transparent 60%),
-      linear-gradient(160deg,var(--bg1),var(--bg0));
-  }
-  #stage.light{
-    --bg0:#e7ebf1; --bg1:#f6f8fb; --card:#ffffff; --card2:#eef2f7;
-    --line:rgba(20,30,50,.10); --line2:rgba(20,30,50,.17);
-    --txt:#1b2230; --muted:#5d6675; --muted2:#9aa4b2;
+    background:linear-gradient(160deg,#0a0e15,#06090c);
   }
 
-  /* ---- faux mediacenter / CarPlay por trás (só p/ dar contexto: a barra é um overlay) ---- */
-  .scene{position:absolute; inset:0;}
-  .scene .topchrome{position:absolute; top:0; left:0; right:0; height:64px; display:flex; align-items:center; gap:18px; padding:0 36px; color:var(--muted); border-bottom:1px solid var(--line);}
-  .scene .topchrome .time{font-size:24px; font-weight:800; color:var(--txt); letter-spacing:.5px;}
-  .scene .topchrome .tp{font-size:16px; font-weight:600;}
-  .scene .topchrome .tp b{color:var(--accentSoft); font-weight:800; margin-right:4px;}
-  .scene .topchrome .spacer{flex:1;}
-  .scene .map{position:absolute; inset:64px 0 156px 0; overflow:hidden; opacity:.5;}
-  .scene .map .road{position:absolute; height:30px; background:rgba(255,255,255,.05); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
-  .scene .map .route{position:absolute; height:10px; border-radius:8px; background:linear-gradient(90deg,var(--accent2),var(--accent)); box-shadow:0 0 22px rgba(var(--glow),.4);}
-  .scene .wm{position:absolute; inset:64px 0 156px 0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--muted2); pointer-events:none;}
-  .scene .wm .big{font-size:42px; font-weight:800; letter-spacing:1px; opacity:.5;}
-  .scene .wm .sm{font-size:16px; letter-spacing:3px; text-transform:uppercase; opacity:.45;}
-
-  /* ---- meta controles do protótipo (NÃO fazem parte do produto) ---- */
-  .proto{position:absolute; top:14px; right:24px; display:flex; align-items:center; gap:12px; z-index:40;}
-  .proto .tag{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); font-weight:800;}
-  .modeseg{display:flex; background:var(--card2); border:1px solid var(--line); border-radius:13px; padding:4px; gap:3px;}
-  .modeseg button{appearance:none; border:0; background:transparent; color:var(--muted); font-size:15px; width:38px; height:32px; border-radius:9px; cursor:pointer; transition:.15s; display:grid; place-items:center;}
-  .modeseg button.on{background:rgba(var(--glow),.16); color:var(--txt); box-shadow:0 0 0 1px rgba(var(--glow),.4);}
-  .swatches{display:flex; gap:7px; align-items:center;}
-  .sw{width:24px;height:24px;border-radius:50%; border:0; background:var(--c); cursor:pointer; padding:0; transition:.15s;}
-  .sw:hover{transform:scale(1.08);}
-  .sw.on{box-shadow:0 0 0 2px var(--bg0), 0 0 0 4px var(--c);}
-
-  /* ---- A BARRA INFERIOR (o produto) ---- */
+  /* ===== A BARRA ===== */
   .bar{
-    position:absolute; left:0; right:0; bottom:0; height:90px;
-    background:linear-gradient(180deg, rgba(8,10,14,.55), rgba(8,10,14,.92));
-    border-top:1px solid var(--line2);
-    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-    box-shadow:0 -16px 44px rgba(0,0,0,.5);
+    position:absolute; left:0; right:0; bottom:0; height:84px;
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+    padding:0 40px;
+    background:linear-gradient(180deg, rgba(6,9,12,.55), rgba(6,9,12,.94));
+    border-top:2px solid var(--accent);
+    box-shadow:0 -2px 22px rgba(var(--glow),.45), 0 -16px 44px rgba(0,0,0,.5);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
     transition:transform .35s cubic-bezier(.2,.8,.2,1);
   }
-  #stage.light .bar{background:linear-gradient(180deg, rgba(246,248,251,.7), rgba(246,248,251,.95));}
   .bar.hidden{transform:translateY(102%);}
-  .tiles{display:flex; align-items:stretch; gap:0; padding:8px 18px; height:100%;}
+  .sec{display:flex; align-items:center; gap:30px;}
+
+  /* temperatura com setas */
+  .temp{display:flex; align-items:center; gap:12px;}
+  .chev{appearance:none; border:0; background:transparent; color:var(--accent); font-size:30px; font-weight:300;
+        line-height:1; cursor:pointer; padding:4px 6px; opacity:.9; transition:.12s;}
+  .chev:hover{opacity:1; text-shadow:0 0 12px rgba(var(--glow),.7);}
+  .temp .tval{font-size:27px; font-weight:700; color:var(--txt); min-width:78px; text-align:center; font-variant-numeric:tabular-nums; letter-spacing:.5px;}
+
+  /* botão de ícone (banco/fan/recirc/volume) com nível embaixo */
+  .ibtn{display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; padding:4px 2px;}
+  .ibtn .ic{width:26px; height:26px; color:var(--txt); display:grid; place-items:center; opacity:.92; transition:.12s;}
+  .ibtn .ic svg{width:26px; height:26px;}
+  .ibtn:hover .ic{opacity:1; color:#fff;}
+  .ibtn.on .ic{color:var(--accent);}
+  .lvl{width:30px; height:3px; border-radius:2px; background:rgba(255,255,255,.14); overflow:hidden;}
+  .lvl > i{display:block; height:100%; background:var(--accent); box-shadow:0 0 8px rgba(var(--glow),.7); width:0;}
+
+  /* texto MAX/AUTO */
+  .txt{display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; padding:4px 4px;}
+  .txt span{font-size:16px; font-weight:800; letter-spacing:1.5px; color:var(--muted); transition:.12s;}
+  .txt .ul{width:24px; height:3px; border-radius:2px; background:transparent;}
+  .txt.on span{color:var(--accent); text-shadow:0 0 12px rgba(var(--glow),.55);}
+  .txt.on .ul{background:var(--accent); box-shadow:0 0 8px rgba(var(--glow),.7);}
+
+  /* modo (condução/direção): ícone + label colorido */
+  .mode{display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:2px 4px; min-width:74px;}
+  .mode .ic{width:20px; height:20px; display:grid; place-items:center;}
+  .mode .ic svg{width:20px; height:20px;}
+  .mode .ml{font-size:14px; font-weight:800; letter-spacing:1.5px;}
+
+  /* regeneração: raio verde + barras de nível */
+  .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
+  .regen .ic{width:24px; height:24px; color:var(--green); display:grid; place-items:center;}
+  .regen .ic svg{width:24px; height:24px;}
+  .rbars{display:flex; gap:3px;}
+  .rbars i{width:7px; height:5px; border-radius:1px; background:rgba(255,255,255,.16);}
+  .rbars i.on{background:var(--green); box-shadow:0 0 7px rgba(54,224,90,.7);}
+
+  /* popup de volume — barra VERTICAL (igual ao Haval Radio) */
+  .volpop{position:absolute; right:40px; bottom:96px; display:none; flex-direction:column; align-items:center; gap:12px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:16px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .volpop.show{display:flex;}
+  .vbtn{appearance:none; border:1px solid var(--line2); background:var(--card); color:var(--txt); width:54px; height:46px; border-radius:13px; font-size:28px; font-weight:300; line-height:1; cursor:pointer;}
+  .vbtn:hover{border-color:var(--accent); color:var(--accent);}
+  .vbtn:active{transform:scale(.93);}
+  .vtrack{position:relative; width:26px; height:170px; border-radius:14px; background:var(--card2); border:1px solid var(--line); cursor:pointer; touch-action:none;}
+  .vfill{position:absolute; left:0; right:0; bottom:0; border-radius:0 0 13px 13px; background:linear-gradient(0deg,#15b9c9,var(--accent)); box-shadow:0 0 16px rgba(var(--glow),.5);}
+  .vfill.full{border-radius:13px;}
+  .vthumb{position:absolute; left:50%; transform:translate(-50%,50%); width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.5), 0 0 0 4px rgba(var(--glow),.3); z-index:2;}
+  .vval{font-size:24px; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .vlabel{font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--muted);}
+
   /* alça p/ revelar a barra quando auto-oculta */
   .reveal{position:absolute; left:50%; bottom:0; transform:translateX(-50%); display:none; align-items:center; gap:8px;
-          padding:9px 22px 11px; border-radius:14px 14px 0 0; background:rgba(8,10,14,.92); border:1px solid var(--line2); border-bottom:0;
-          color:var(--accentSoft); font-size:15px; font-weight:800; cursor:pointer; z-index:5; backdrop-filter:blur(14px);}
+          padding:8px 22px 10px; border-radius:13px 13px 0 0; background:rgba(6,9,12,.94); border:1px solid var(--accent); border-bottom:0;
+          color:var(--accent); font-size:14px; font-weight:800; cursor:pointer; z-index:5; backdrop-filter:blur(12px);}
   .reveal.show{display:flex;}
-  #stage.light .reveal{background:rgba(246,248,251,.95);}
 
-  .tile{
-    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
-    padding:6px 8px; border-radius:12px; cursor:default; transition:.14s; border:1px solid transparent;
-  }
-  .tile:hover{background:rgba(var(--glow),.06); border-color:var(--line);}
-  .tile .ic{width:22px; height:22px; color:var(--accentSoft); display:grid; place-items:center; flex:none;}
-  .tile .ic svg{width:22px; height:22px;}
-
-  .tbody{display:flex; align-items:center; justify-content:center; gap:7px;}
-
-  /* stepper */
-  .step{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt);
-        width:30px; height:30px; border-radius:9px; font-size:20px; font-weight:300; line-height:1;
-        cursor:pointer; display:grid; place-items:center; transition:.12s; flex:none;}
-  .step:hover{border-color:var(--accent); color:var(--accentSoft);}
-  .step:active{transform:scale(.92); background:rgba(var(--glow),.12);}
-  .val{display:flex; flex-direction:column; align-items:center; gap:3px; min-width:46px;}
-  .val .num{font-size:20px; font-weight:800; color:var(--txt); font-variant-numeric:tabular-nums; line-height:1;}
-  .val .segbar{display:flex; gap:3px;}
-  .val .segbar i{width:6px; height:6px; border-radius:2px; background:var(--card2); border:1px solid var(--line2);}
-  .val .segbar i.on{background:var(--accent); border-color:transparent; box-shadow:0 0 7px rgba(var(--glow),.55);}
-
-  /* cycle */
-  .tile.cycle{cursor:pointer;}
-  .tile.cycle:hover{background:rgba(var(--glow),.09); border-color:rgba(var(--glow),.3);}
-  .cycle .tbody{flex-direction:column; gap:5px;}
-  .cycle .mode{font-size:17px; font-weight:800; color:var(--accentSoft); line-height:1; text-align:center;}
-  .cycle .dots{display:flex; gap:5px; justify-content:center;}
-  .cycle .dots i{width:6px; height:6px; border-radius:50%; background:var(--card2); border:1px solid var(--line2);}
-  .cycle .dots i.on{background:var(--accent); border-color:transparent; box-shadow:0 0 7px rgba(var(--glow),.55);}
-
-  /* toggle */
-  .tile.toggle{cursor:pointer;}
-  .toggle .pill{font-size:14px; font-weight:800; color:var(--muted); padding:6px 14px; border-radius:11px;
-                border:1px solid var(--line2); background:var(--card2); transition:.14s;}
-  .tile.toggle.on .pill{color:var(--onAccent); background:linear-gradient(180deg,var(--accent),var(--accent2)); border-color:transparent;}
-  .tile.toggle.on .ic{color:var(--accent);}
-
-  .divider{flex:none; width:1px; align-self:center; height:58px; background:var(--line2); margin:0 7px;}
-
-  /* atalho de configurações (no app real = ícone do app na central que abre esta tela) */
-  .gear{position:absolute; top:16px; right:20px; z-index:40; display:flex; align-items:center; gap:9px;
-        background:var(--card2); border:1px solid var(--line2); color:var(--muted); border-radius:13px; padding:9px 15px; font-size:14px; font-weight:700; cursor:pointer;}
-  .gear:hover{border-color:var(--accent); color:var(--accentSoft);}
-  .gear svg{width:18px; height:18px;}
-  .gear .gtag{font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted2);}
-
-  /* tela de Configurações (Activity própria, aberta pelo ícone na central) */
+  /* ===== Configurações (abre pelo ícone do app; aqui pela tecla C) ===== */
   .settings{position:absolute; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:60;}
   .settings.show{display:flex;}
   .sheet{width:780px; background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line2); border-radius:24px; padding:30px 36px; box-shadow:var(--shadow);}
   .sheet h1{font-size:26px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:12px;}
-  .sheet h1 svg{width:28px; height:28px; color:var(--accentSoft);}
+  .sheet h1 svg{width:28px; height:28px; color:var(--accent);}
   .sheet .sub{color:var(--muted); font-size:15px; margin-bottom:26px;}
   .sgroup{border-top:1px solid var(--line); padding-top:22px;}
   .sgroup .glabel{font-size:12px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); margin-bottom:18px;}
@@ -138,37 +110,36 @@
   .seg2 button{appearance:none; border:0; background:transparent; color:var(--muted); font-weight:700; font-size:16px; padding:10px 24px; border-radius:10px; cursor:pointer; transition:.15s;}
   .seg2 button.on{background:linear-gradient(180deg,rgba(var(--glow),.26),rgba(var(--glow),.12)); color:#fff; box-shadow:0 0 0 1px rgba(var(--glow),.45);}
   .secs{display:flex; align-items:center; gap:12px; flex:none;}
-  .secs .num{font-size:24px; font-weight:800; min-width:66px; text-align:center; font-variant-numeric:tabular-nums; color:var(--accentSoft);}
-  .sheet .actions{display:flex; justify-content:flex-end; margin-top:6px;}
-  .sheet .done{appearance:none; border:0; background:linear-gradient(180deg,var(--accent),var(--accent2)); color:var(--onAccent); font-weight:800; font-size:16px; padding:12px 28px; border-radius:14px; cursor:pointer;}
-  /* seção de atualização (igual ao Haval Radio) */
+  .secs .num{font-size:24px; font-weight:800; min-width:66px; text-align:center; font-variant-numeric:tabular-nums; color:var(--accent);}
   .step2{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt); font-weight:700; font-size:15px; padding:10px 18px; border-radius:12px; cursor:pointer; transition:.14s; flex:none;}
-  .step2:hover{border-color:var(--accent); color:var(--accentSoft);}
-  .step2.primary{background:linear-gradient(180deg,var(--accent),var(--accent2)); color:var(--onAccent); border:0;}
-  .step2:disabled{opacity:.5; cursor:default;}
-  .srow .name small.ok{color:var(--accentSoft);}
+  .step2:hover{border-color:var(--accent); color:var(--accent);}
+  .step2.primary{background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); border:0;}
+  .step{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt); width:40px; height:40px; border-radius:11px; font-size:22px; line-height:1; cursor:pointer;}
+  .srow .name small.ok{color:var(--accent);}
   .pbar{flex:1; height:10px; border-radius:6px; background:var(--card2); border:1px solid var(--line); overflow:hidden;}
-  .pbar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width .15s;}
+  .pbar > i{display:block; height:100%; width:0%; background:var(--accent);}
+  .sheet .actions{display:flex; justify-content:flex-end; margin-top:6px;}
+  .sheet .done{appearance:none; border:0; background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); font-weight:800; font-size:16px; padding:12px 28px; border-radius:14px; cursor:pointer;}
 </style>
 </head>
 <body>
 <div id="fit"><div id="stage">
 
-  <!-- header e meio ficam VAZIOS de propósito: o overlay só desenha a faixa de baixo
-       (o resto da tela é o mediacenter / mapa / CarPlay aparecendo por trás) -->
+  <!-- header e meio VAZIOS: o overlay só desenha a faixa de baixo (mapa/CarPlay por trás).
+       Config abre só pelo ícone do app na central; no protótipo, tecla "C". -->
 
-  <!-- Config NÃO tem atalho na tela: no app real abre só pelo ícone do app na central.
-       No protótipo, abra com a tecla "C" (ou ?#settings na URL). A barra fica 100% sozinha. -->
+  <div class="bar" id="bar"></div>
 
-  <!-- ===== A BARRA INFERIOR (único elemento do produto) ===== -->
-  <div class="bar" id="bar">
-    <div class="tiles" id="tiles"></div>
+  <div class="volpop" id="volpop">
+    <button class="vbtn" id="volPlus">+</button>
+    <div class="vtrack" id="vtrack"><div class="vfill" id="vfill"></div><div class="vthumb" id="vthumb"></div></div>
+    <button class="vbtn" id="volMinus">&#8722;</button>
+    <div class="vval" id="vval">14</div>
+    <div class="vlabel">Volume</div>
   </div>
 
-  <!-- alça p/ revelar a barra quando estiver auto-oculta -->
   <button class="reveal" id="reveal">&#9650; Haval Dock</button>
 
-  <!-- tela de Configurações -->
   <div class="settings" id="settings">
     <div class="sheet">
       <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.7-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg> Haval Dock</h1>
@@ -185,9 +156,9 @@
         <div class="srow" id="secsRow">
           <div class="name">Ocultar após<small>O tempo reinicia a cada toque na barra.</small></div>
           <div class="secs">
-            <button class="step" id="secMinus" aria-label="menos">&#8722;</button>
+            <button class="step" id="secMinus">&#8722;</button>
             <span class="num" id="secsNum">10s</span>
-            <button class="step" id="secPlus" aria-label="mais">+</button>
+            <button class="step" id="secPlus">+</button>
           </div>
         </div>
       </div>
@@ -213,168 +184,168 @@
 </div></div>
 
 <script>
-  /* ---- escala do palco (igual ao haval-radio) ---- */
   function fit(){
     const s=document.getElementById('stage');
     const k=Math.min(window.innerWidth/1920, window.innerHeight/720);
-    const tx=(window.innerWidth-1920*k)/2, ty=(window.innerHeight-720*k)/2;
-    s.style.transform='translate('+tx+'px,'+ty+'px) scale('+k+')';
+    s.style.transform='translate('+((window.innerWidth-1920*k)/2)+'px,'+((window.innerHeight-720*k)/2)+'px) scale('+k+')';
   }
   addEventListener('resize',fit); addEventListener('load',fit); requestAnimationFrame(fit); fit();
 
-  /* ---- ícones (SVG inline, herdam a cor de acento) ---- */
   function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
   const ICONS={
-    vol:   svg('<path d="M4 9h3l4-3v12l-4-3H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/>'),
-    seat:  svg('<path d="M9 3h2a3 3 0 0 1 3 3v6H6V6a3 3 0 0 1 3-3z"/><path d="M6 12h11a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M17 17v3"/><path d="M9.2 8l.8-.9.8.9"/>'),
-    thermo:svg('<path d="M12 3a2 2 0 0 1 2 2v8.4a4 4 0 1 1-4 0V5a2 2 0 0 1 2-2z"/><path d="M12 9.5v5.5"/>'),
-    regen: svg('<rect x="3" y="8" width="15" height="9" rx="1.6"/><path d="M19.5 11v3"/><path d="M10.6 9.6L8.4 13H11l-1 3.4L13.2 12H10.6z"/>'),
-    steer: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/><path d="M12 14.2V21"/><path d="M10.1 13.1L4.5 16.5"/><path d="M13.9 13.1l5.6 3.4"/>'),
-    car:   svg('<path d="M4 12l2-5a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 7l2 5"/><path d="M3 12h18v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/>'),
-    fan:   svg('<path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h8a2 2 0 1 1-2 2"/>'),
-    recirc:svg('<path d="M5 9a7 7 0 0 1 12-2"/><path d="M17 3v4h-4"/><path d="M19 15a7 7 0 0 1-12 2"/><path d="M7 21v-4h4"/>')
+    seat: svg('<path d="M9 3h2a3 3 0 0 1 3 3v6H6V6a3 3 0 0 1 3-3z"/><path d="M6 12h11a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M17 17v3"/>'),
+    fan:  svg('<path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h8a2 2 0 1 1-2 2"/>'),
+    sync: svg('<path d="M5 9a7 7 0 0 1 12-2"/><path d="M17 3v4h-4"/><path d="M19 15a7 7 0 0 1-12 2"/><path d="M7 21v-4h4"/>'),
+    recircOn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 14.2a1.4 1.4 0 0 1 1.4-1.4h0.8l2.3-2.7a2.2 2.2 0 0 1 1.7-0.8h4.9a2.2 2.2 0 0 1 1.85 1l1.3 1.9 1.35 0.3a1.4 1.4 0 0 1 1.15 1.4"/><path d="M4.4 14.6H19.6"/><circle cx="7.4" cy="15" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="2" fill="currentColor" stroke="none"/><path d="M9.3 12.4h3a1.6 1.6 0 1 0-1.6-1.6"/><path d="M10 11.2l-0.9 1.2 1.3 0.5"/></svg>',
+    recircOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 14.2a1.4 1.4 0 0 1 1.4-1.4h0.8l2.3-2.7a2.2 2.2 0 0 1 1.7-0.8h4.9a2.2 2.2 0 0 1 1.85 1l1.3 1.9 1.35 0.3a1.4 1.4 0 0 1 1.15 1.4"/><path d="M4.4 14.6H19.6"/><circle cx="7.4" cy="15" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="2" fill="currentColor" stroke="none"/><path d="M12 6.6v4.8"/><path d="M10.2 9.6l1.8 1.8 1.8-1.8"/></svg>',
+    car:  svg('<path d="M4 12l2-5a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 7l2 5"/><path d="M3 12h18v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M6 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/><path d="M15 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/>'),
+    steer:svg('<path d="M3 12a9 9 0 1 1 18 0a9 9 0 1 1-18 0"/><path d="M9.8 12a2.2 2.2 0 1 1 4.4 0a2.2 2.2 0 1 1-4.4 0"/><path d="M12 14.2V21"/><path d="M10.1 13.1L4.5 16.5"/><path d="M13.9 13.1l5.6 3.4"/>'),
+    volume:svg('<path d="M4 9h3l4-3v12l-4-3H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/>'),
+    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L5 13h5l-1 9 9-12h-5l1-8z"/></svg>'
   };
+  const MCOL={c:'var(--accent)', g:'var(--green)', r:'var(--red)', w:'var(--txt)'};
+  const REGENCOL=['var(--green)','#ffc23c','var(--red)'];   // Baixo=verde, Normal=amarelo, Alto=vermelho
 
-  /* ---- config da barra (ordem ESQUERDA -> DIREITA = a sua lista) ---- */
-  const TILES=[
-    {type:'stepper', icon:'thermo', label:'Temp. motorista',    min:16,max:32, step:0.5, val:23, unit:'°', g:0},
-    {type:'stepper', icon:'seat',   label:'Ventil. motorista',  min:0, max:3,  step:1,   val:0,  seg:true, g:0},
-    {type:'stepper', icon:'fan',    label:'Veloc. ar-cond.',    min:0, max:7,  step:1,   val:3,  seg:true, g:1},
-    {type:'toggle',  icon:'recirc', label:'Recirculador',       on:false, onTxt:'Recirc.', offTxt:'Externo', g:1},
-    {type:'cycle',   icon:'car',    label:'Modo condução',      opts:['Normal','Eco','Sport','Neve'],        idx:0, g:2},
-    {type:'cycle',   icon:'steer',  label:'Modo direção',       opts:['Conforto','Padrão','Esportivo'],      idx:1, g:2},
-    {type:'cycle',   icon:'regen',  label:'Regeneração',        opts:['Baixo','Normal','Alto'],              idx:1, g:2},
-    {type:'stepper', icon:'thermo', label:'Temp. passageiro',   min:16,max:32, step:0.5, val:22, unit:'°', g:3},
-    {type:'stepper', icon:'seat',   label:'Ventil. passageiro', min:0, max:3,  step:1,   val:1,  seg:true, g:3},
-    {type:'stepper', icon:'vol',    label:'Volume rádio',       min:0, max:30, step:1,   val:14, g:4}
+  // ESQUERDA -> CENTRO -> DIREITA (estilo do app de referência)
+  const ITEMS=[
+    {sec:0, type:'temp',  label:'Temp. motorista',    val:23.0, min:16, max:32, step:0.5},
+    {sec:0, type:'level', icon:'seat',   label:'Ventil. motorista', val:0, max:3},
+    {sec:0, type:'level', icon:'fan',    label:'Veloc. ar-cond.',   val:3, max:7},
+    {sec:0, type:'text',  label:'MAX',  on:false},
+    {sec:0, type:'text',  label:'AUTO', on:true},
+    {sec:0, type:'text',  label:'SYNC', on:false},
+    {sec:0, type:'itog',  icon:'recircOn', iconOff:'recircOff', label:'Recirculador', on:false},
+
+    {sec:1, type:'mode',  icon:'car',   label:'Modo condução', opts:[['Normal','c'],['Eco','g'],['Sport','r'],['Neve','c']], idx:2},
+    {sec:1, type:'mode',  icon:'steer', label:'Modo direção',  opts:[['Conforto','c'],['Normal','w'],['Esportiva','r']], idx:1},
+    {sec:1, type:'regen', label:'Regeneração', opts:['Baixo','Normal','Alto'], idx:1},
+
+    {sec:2, type:'temp',  label:'Temp. passageiro',   val:23.0, min:16, max:32, step:0.5},
+    {sec:2, type:'level', icon:'seat',   label:'Ventil. passageiro', val:1, max:3},
+    {sec:2, type:'vol',   icon:'volume', label:'Volume rádio',  val:14, max:30},
   ];
 
-  function fmt(t){
-    if(t.unit){ return t.val.toFixed(1)+t.unit; }
-    return String(t.val);
-  }
-  function segbar(t){
-    if(!t.seg) return '';
-    let s='<div class="segbar">';
-    for(let i=1;i<=t.max;i++) s+='<i class="'+(i<=t.val?'on':'')+'"></i>';
-    return s+'</div>';
-  }
-  function dots(t){
-    let s='<div class="dots">';
-    t.opts.forEach((o,i)=> s+='<i class="'+(i===t.idx?'on':'')+'"></i>');
-    return s+'</div>';
-  }
-  function tbody(t){
-    if(t.type==='stepper'){
-      return '<button class="step minus" data-act="dec" aria-label="diminuir">&#8722;</button>'
-           + '<div class="val"><span class="num">'+fmt(t)+'</span>'+segbar(t)+'</div>'
-           + '<button class="step plus" data-act="inc" aria-label="aumentar">+</button>';
-    }
-    if(t.type==='cycle'){
-      return '<div style="text-align:center;width:100%"><div class="mode">'+t.opts[t.idx]+'</div>'+dots(t)+'</div>';
-    }
-    return '<div class="pill">'+(t.on?t.onTxt:t.offTxt)+'</div>';
-  }
   function render(){
-    const wrap=document.getElementById('tiles'); wrap.innerHTML='';
-    TILES.forEach((t,i)=>{
-      if(i>0 && TILES[i-1].g!==t.g){ const d=document.createElement('div'); d.className='divider'; wrap.appendChild(d); }
-      const el=document.createElement('div');
-      el.className='tile '+t.type+(t.type==='toggle'&&t.on?' on':'');
-      el.dataset.i=i;
-      el.title=t.label;   // só dica (hover) — sem texto na barra
-      el.innerHTML='<span class="ic">'+ICONS[t.icon]+'</span><div class="tbody">'+tbody(t)+'</div>';
-      wrap.appendChild(el);
+    const bar=document.getElementById('bar'); bar.innerHTML='';
+    [0,1,2].forEach(s=>{
+      const sec=document.createElement('div'); sec.className='sec';
+      ITEMS.forEach((it,i)=>{ if(it.sec===s) sec.appendChild(tile(it,i)); });
+      bar.appendChild(sec);
     });
   }
 
-  /* ---- interação na barra (qualquer toque reseta o timer de inatividade) ---- */
-  document.getElementById('bar').addEventListener('click',e=>{
-    const tile=e.target.closest('.tile');
-    if(tile){
-      const t=TILES[+tile.dataset.i];
-      if(t.type==='stepper'){
-        const btn=e.target.closest('[data-act]');
-        if(btn){ const d=(btn.dataset.act==='inc'?1:-1)*t.step; t.val=Math.min(t.max,Math.max(t.min, Math.round((t.val+d)*10)/10)); render(); }
-      } else if(t.type==='cycle'){
-        t.idx=(t.idx+1)%t.opts.length; render();
-      } else {
-        t.on=!t.on; render();
-      }
+  function tile(it,i){
+    if(it.type==='temp'){
+      const el=document.createElement('div'); el.className='temp'; el.title=it.label;
+      el.innerHTML='<button class="chev" data-d="-1">&lsaquo;</button><span class="tval">'+it.val.toFixed(1)+'°</span><button class="chev" data-d="1">&rsaquo;</button>';
+      el.querySelectorAll('.chev').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();
+        it.val=Math.min(it.max,Math.max(it.min,Math.round((it.val+(+b.dataset.d)*it.step)*10)/10)); activity(); render();}));
+      return el;
     }
-    activity();   // toque na barra = atividade -> zera a contagem
-  });
+    if(it.type==='level'){
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
+      el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
+      el.addEventListener('click',()=>{ it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
+      return el;
+    }
+    if(it.type==='text'){
+      const el=document.createElement('div'); el.className='txt'+(it.on?' on':''); el.title=it.label;
+      el.innerHTML='<span>'+it.label+'</span><div class="ul"></div>';
+      el.addEventListener('click',()=>{ it.on=!it.on; activity(); render();});
+      return el;
+    }
+    if(it.type==='itog'){
+      const ic=(!it.on && it.iconOff)?ICONS[it.iconOff]:ICONS[it.icon];
+      const el=document.createElement('div'); el.className='ibtn'+(it.on?' on':''); el.title=it.label;
+      el.innerHTML='<span class="ic">'+ic+'</span><div class="lvl"><i style="width:'+(it.on?100:0)+'%"></i></div>';
+      el.addEventListener('click',()=>{ it.on=!it.on; activity(); render();});
+      return el;
+    }
+    if(it.type==='vol'){
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
+      el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
+      el.addEventListener('click',e=>{ e.stopPropagation(); activity(); openVol(it); });
+      return el;
+    }
+    if(it.type==='mode'){
+      const o=it.opts[it.idx]; const col=MCOL[o[1]];
+      const el=document.createElement('div'); el.className='mode'; el.title=it.label;
+      el.innerHTML='<span class="ic" style="color:'+col+'">'+ICONS[it.icon]+'</span><span class="ml" style="color:'+col+'">'+o[0].toUpperCase()+'</span>';
+      el.addEventListener('click',()=>{ it.idx=(it.idx+1)%it.opts.length; activity(); render();});
+      return el;
+    }
+    // regen — cor do raio por nível: verde=fraco, amarelo=normal, vermelho=forte
+    const el=document.createElement('div'); el.className='regen'; el.title=it.label;
+    const rc=REGENCOL[it.idx]||'var(--green)';
+    let bars=''; for(let k=0;k<3;k++) bars+='<i class="'+(k<=it.idx?'on':'')+'" style="'+(k<=it.idx?'background:'+rc+';box-shadow:0 0 7px '+rc+';':'')+'"></i>';
+    el.innerHTML='<span class="ic" style="color:'+rc+'">'+ICONS.bolt+'</span><div class="rbars">'+bars+'</div>';
+    el.addEventListener('click',()=>{ it.idx=(it.idx+1)%it.opts.length; activity(); render();});
+    return el;
+  }
+
+  document.getElementById('bar').addEventListener('pointerdown',()=>activity(),true);
   render();
 
-  /* ---- visibilidade: sempre / auto-ocultar com timer de inatividade ---- */
-  const cfg={ mode:'auto', secs:10 };       // 'always' | 'auto'
+  /* ---- visibilidade: sempre / auto-ocultar (timer reseta a cada toque) ---- */
+  const cfg={ mode:'auto', secs:10 };
   let hideTimer=null;
   const bar=document.getElementById('bar'), reveal=document.getElementById('reveal');
   function showBar(){ bar.classList.remove('hidden'); reveal.classList.remove('show'); }
-  function hideBar(){ bar.classList.add('hidden'); reveal.classList.add('show'); }
-  function armTimer(){
-    if(hideTimer){ clearTimeout(hideTimer); hideTimer=null; }
-    if(cfg.mode!=='auto') return;
-    hideTimer=setTimeout(hideBar, cfg.secs*1000);
-  }
-  function activity(){ showBar(); armTimer(); }   // resetar o timer de inatividade
+  function hideBar(){ if(cfg.mode!=='auto') return; bar.classList.add('hidden'); reveal.classList.add('show'); }
+  function armTimer(){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} if(cfg.mode==='auto') hideTimer=setTimeout(hideBar, cfg.secs*1000); }
+  function activity(){ showBar(); armTimer(); }
+  reveal.addEventListener('click',activity);
 
-  /* ---- tela de Configurações ---- */
+  /* ---- popup de volume — barra vertical (igual ao Haval Radio) ---- */
+  let volItem=null;
+  const volpop=document.getElementById('volpop'), vvalEl=document.getElementById('vval'),
+        vfill=document.getElementById('vfill'), vthumb=document.getElementById('vthumb'), vtrack=document.getElementById('vtrack');
+  function drawVol(){ const r=Math.max(0,Math.min(1,volItem.val/volItem.max));
+    vfill.style.height=(r*100)+'%'; vfill.classList.toggle('full', r>=0.999);
+    vthumb.style.bottom=(r*100)+'%'; vvalEl.textContent=volItem.val; }
+  function openVol(it){ volItem=it; drawVol(); volpop.classList.add('show'); }
+  function setVol(v){ if(!volItem) return; volItem.val=Math.min(volItem.max,Math.max(0,v)); drawVol(); activity(); render(); }
+  document.getElementById('volPlus').addEventListener('click',e=>{ e.stopPropagation(); setVol(volItem.val+1); });
+  document.getElementById('volMinus').addEventListener('click',e=>{ e.stopPropagation(); setVol(volItem.val-1); });
+  let vdrag=false;
+  function volFromY(y){ const rc=vtrack.getBoundingClientRect(); let r=1-(y-rc.top)/rc.height; r=Math.max(0,Math.min(1,r)); setVol(Math.round(r*volItem.max)); }
+  vtrack.addEventListener('pointerdown',e=>{ e.stopPropagation(); vdrag=true; vtrack.setPointerCapture(e.pointerId); volFromY(e.clientY); });
+  vtrack.addEventListener('pointermove',e=>{ if(vdrag) volFromY(e.clientY); });
+  vtrack.addEventListener('pointerup',()=>vdrag=false);
+  volpop.addEventListener('click',e=>e.stopPropagation());
+  document.getElementById('stage').addEventListener('click',e=>{
+    if(volpop.classList.contains('show') && !volpop.contains(e.target)) volpop.classList.remove('show'); });
+
+  /* ---- Configurações ---- */
   const settings=document.getElementById('settings');
   function applyCfg(){
     document.querySelectorAll('#visSeg button').forEach(b=>b.classList.toggle('on', b.dataset.mode===cfg.mode));
     document.getElementById('secsRow').classList.toggle('disabled', cfg.mode!=='auto');
     document.getElementById('secsNum').textContent=cfg.secs+'s';
-    if(cfg.mode==='always'){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} showBar(); }
-    else { activity(); }
+    if(cfg.mode==='always'){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} showBar(); } else activity();
   }
   document.getElementById('sDone').addEventListener('click',()=>settings.classList.remove('show'));
-  // sem atalho na tela: config abre só pelo ícone do app (no protótipo: tecla "C")
   addEventListener('keydown',e=>{ if(e.key==='c'||e.key==='C') settings.classList.toggle('show'); });
   settings.addEventListener('click',e=>{ if(e.target===settings) settings.classList.remove('show'); });
   document.querySelectorAll('#visSeg button').forEach(b=>b.addEventListener('click',()=>{ cfg.mode=b.dataset.mode; applyCfg(); }));
   document.getElementById('secMinus').addEventListener('click',()=>{ cfg.secs=Math.max(3,cfg.secs-1); applyCfg(); });
   document.getElementById('secPlus').addEventListener('click',()=>{ cfg.secs=Math.min(30,cfg.secs+1); applyCfg(); });
-  reveal.addEventListener('click',activity);
   applyCfg();
 
-  /* ---- updater in-app (mock; igual ao Haval Radio: lê releases do GitHub) ---- */
+  /* ---- updater (mock) ---- */
   (function(){
     const msg=document.getElementById('updMsg'), check=document.getElementById('updCheck'), doIt=document.getElementById('updDo');
     const progRow=document.getElementById('updProgRow'), fill=document.getElementById('pbarFill'), pct=document.getElementById('pPct');
-    check.addEventListener('click',()=>{
-      check.disabled=true; msg.className=''; msg.textContent='Verificando no GitHub…';
-      setTimeout(()=>{ msg.className='ok'; msg.textContent='Nova versão v0.2.0 disponível'; check.style.display='none'; doIt.style.display=''; check.disabled=false; },800);
-    });
-    doIt.addEventListener('click',()=>{
-      doIt.style.display='none'; msg.className=''; msg.textContent='Baixando…'; progRow.style.display='flex';
-      let p=0; const t=setInterval(()=>{ p+=Math.max(4,Math.round(Math.random()*12));
-        if(p>=100){ p=100; clearInterval(t); fill.style.width='100%'; pct.textContent='100%';
-          setTimeout(()=>{ msg.className='ok'; msg.textContent='Baixado — abrindo instalador… (mock)'; progRow.style.display='none'; },300); return; }
-        fill.style.width=p+'%'; pct.textContent=p+'%'; },140);
-    });
+    check.addEventListener('click',()=>{ check.disabled=true; msg.className=''; msg.textContent='Verificando no GitHub…';
+      setTimeout(()=>{ msg.className='ok'; msg.textContent='Nova versão v0.2.0 disponível'; check.style.display='none'; doIt.style.display=''; check.disabled=false; },800); });
+    doIt.addEventListener('click',()=>{ doIt.style.display='none'; msg.className=''; msg.textContent='Baixando…'; progRow.style.display='flex';
+      let p=0; const t=setInterval(()=>{ p+=Math.max(4,Math.round(Math.random()*12)); if(p>=100){p=100;clearInterval(t);fill.style.width='100%';pct.textContent='100%';
+        setTimeout(()=>{ msg.className='ok'; msg.textContent='Baixado — abrindo instalador… (mock)'; progRow.style.display='none'; },300); return;}
+        fill.style.width=p+'%'; pct.textContent=p+'%'; },140); });
   })();
 
   if(location.hash==='#settings') settings.classList.add('show');
-
-  /* ---- tema claro/escuro + cores de acento (portado do haval-radio) ---- */
-  const THEMES={
-    teal:{accent:'#19e3b1',accent2:'#0bb69a',soft:'#5ff0cf',glow:'25,227,177',on:'#04140f'},
-    cyan:{accent:'#22c3ff',accent2:'#0a93cc',soft:'#7adcff',glow:'34,195,255',on:'#04222e'},
-    blue:{accent:'#3b82f6',accent2:'#1d5fd1',soft:'#8fb4ff',glow:'59,130,246',on:'#ffffff'},
-    violet:{accent:'#a06bff',accent2:'#7b3fe4',soft:'#c5a3ff',glow:'160,107,255',on:'#ffffff'},
-    pink:{accent:'#ff5fa2',accent2:'#d6356f',soft:'#ff9cc4',glow:'255,95,162',on:'#33091c'},
-    red:{accent:'#ff3b46',accent2:'#c41020',soft:'#ff7a82',glow:'255,59,70',on:'#ffffff'},
-    orange:{accent:'#ff8a3d',accent2:'#db6312',soft:'#ffb285',glow:'255,138,61',on:'#2e1500'},
-    amber:{accent:'#ffb13c',accent2:'#e08a1e',soft:'#ffd089',glow:'255,177,60',on:'#2a1a00'}
-  };
-  const LS={get:(k,d)=>{try{return localStorage.getItem(k)||d;}catch(e){return d;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}}};
-  function applyTheme(t){const th=THEMES[t],r=document.documentElement.style;
-    r.setProperty('--accent',th.accent); r.setProperty('--accent2',th.accent2);
-    r.setProperty('--accentSoft',th.soft); r.setProperty('--glow',th.glow); r.setProperty('--onAccent',th.on);
-    LS.set('dockAccent',t);}
-  let acc=LS.get('dockAccent','teal'); if(!THEMES[acc]) acc='teal';
-  applyTheme(acc);
+  if(location.hash==='#vol'){ const v=ITEMS.find(x=>x.type==='vol'); if(v) openVol(v); }
 </script>
 </body>
 </html>

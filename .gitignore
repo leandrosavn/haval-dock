@@ -12,3 +12,8 @@ local.properties
 /app/release/
 *.keystore
 *.jks
+
+# renders temporários do protótipo (gerados via Edge headless)
+/prototype/preview-on.png
+/prototype/preview-vol.png
+/prototype/zoom-*.png
