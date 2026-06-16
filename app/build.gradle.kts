@@ -45,6 +45,7 @@ android {
 
     buildFeatures {
         compose = true
+        aidl = true
         buildConfig = true
     }
     packaging {
@@ -68,5 +69,10 @@ dependencies {
     implementation(libs.ui.graphics)
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
+    implementation(libs.material.icons.extended)
     debugImplementation(libs.ui.tooling)
+
+    implementation(libs.shizuku)
+    implementation(libs.shizuku.provider)
+    implementation(libs.hiddenapibypass)
 }

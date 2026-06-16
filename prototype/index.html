@@ -57,7 +57,7 @@
 
   /* ---- A BARRA INFERIOR (o produto) ---- */
   .bar{
-    position:absolute; left:0; right:0; bottom:0; height:76px;
+    position:absolute; left:0; right:0; bottom:0; height:90px;
     background:linear-gradient(180deg, rgba(8,10,14,.55), rgba(8,10,14,.92));
     border-top:1px solid var(--line2);
     backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
@@ -66,10 +66,7 @@
   }
   #stage.light .bar{background:linear-gradient(180deg, rgba(246,248,251,.7), rgba(246,248,251,.95));}
   .bar.hidden{transform:translateY(102%);}
-  .tiles{display:flex; align-items:stretch; gap:0; padding:7px 18px; height:100%;}
-  /* barrinha de contagem (some quando zera; reinicia a cada toque) */
-  .countdown{position:absolute; top:0; left:0; height:3px; width:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); box-shadow:0 0 10px rgba(var(--glow),.6);}
-  .countdown.off{display:none;}
+  .tiles{display:flex; align-items:stretch; gap:0; padding:8px 18px; height:100%;}
   /* alça p/ revelar a barra quando auto-oculta */
   .reveal{position:absolute; left:50%; bottom:0; transform:translateX(-50%); display:none; align-items:center; gap:8px;
           padding:9px 22px 11px; border-radius:14px 14px 0 0; background:rgba(8,10,14,.92); border:1px solid var(--line2); border-bottom:0;
@@ -78,7 +75,7 @@
   #stage.light .reveal{background:rgba(246,248,251,.95);}
 
   .tile{
-    flex:1; min-width:0; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:10px;
+    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
     padding:6px 8px; border-radius:12px; cursor:default; transition:.14s; border:1px solid transparent;
   }
   .tile:hover{background:rgba(var(--glow),.06); border-color:var(--line);}
@@ -115,7 +112,7 @@
   .tile.toggle.on .pill{color:var(--onAccent); background:linear-gradient(180deg,var(--accent),var(--accent2)); border-color:transparent;}
   .tile.toggle.on .ic{color:var(--accent);}
 
-  .divider{flex:none; width:1px; align-self:center; height:44px; background:var(--line2); margin:0 7px;}
+  .divider{flex:none; width:1px; align-self:center; height:58px; background:var(--line2); margin:0 7px;}
 
   /* atalho de configurações (no app real = ícone do app na central que abre esta tela) */
   .gear{position:absolute; top:16px; right:20px; z-index:40; display:flex; align-items:center; gap:9px;
@@ -165,7 +162,6 @@
 
   <!-- ===== A BARRA INFERIOR (único elemento do produto) ===== -->
   <div class="bar" id="bar">
-    <div class="countdown off" id="cd"></div>
     <div class="tiles" id="tiles"></div>
   </div>
 
@@ -313,18 +309,15 @@
   /* ---- visibilidade: sempre / auto-ocultar com timer de inatividade ---- */
   const cfg={ mode:'auto', secs:10 };       // 'always' | 'auto'
   let hideTimer=null;
-  const bar=document.getElementById('bar'), cd=document.getElementById('cd'), reveal=document.getElementById('reveal');
+  const bar=document.getElementById('bar'), reveal=document.getElementById('reveal');
   function showBar(){ bar.classList.remove('hidden'); reveal.classList.remove('show'); }
   function hideBar(){ bar.classList.add('hidden'); reveal.classList.add('show'); }
-  function stopCount(){ cd.classList.add('off'); cd.style.transition='none'; cd.style.width='100%'; }
   function armTimer(){
     if(hideTimer){ clearTimeout(hideTimer); hideTimer=null; }
-    if(cfg.mode!=='auto'){ stopCount(); return; }
-    cd.classList.remove('off'); cd.style.transition='none'; cd.style.width='100%';   // reinicia visual cheio
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ cd.style.transition='width '+cfg.secs+'s linear'; cd.style.width='0%'; }));
+    if(cfg.mode!=='auto') return;
     hideTimer=setTimeout(hideBar, cfg.secs*1000);
   }
-  function activity(){ showBar(); armTimer(); }   // resetar contagem
+  function activity(){ showBar(); armTimer(); }   // resetar o timer de inatividade
 
   /* ---- tela de Configurações ---- */
   const settings=document.getElementById('settings');
@@ -332,7 +325,7 @@
     document.querySelectorAll('#visSeg button').forEach(b=>b.classList.toggle('on', b.dataset.mode===cfg.mode));
     document.getElementById('secsRow').classList.toggle('disabled', cfg.mode!=='auto');
     document.getElementById('secsNum').textContent=cfg.secs+'s';
-    if(cfg.mode==='always'){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} showBar(); stopCount(); }
+    if(cfg.mode==='always'){ if(hideTimer){clearTimeout(hideTimer); hideTimer=null;} showBar(); }
     else { activity(); }
   }
   document.getElementById('sDone').addEventListener('click',()=>settings.classList.remove('show'));
