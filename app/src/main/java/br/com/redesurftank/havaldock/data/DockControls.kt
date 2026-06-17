@@ -68,7 +68,7 @@ class Temp(id: String, section: Int, label: String, val key: String,
 
 /** Banco/ventilador: ícone + sublinhado de nível; toque incrementa e dá a volta. */
 class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
-           val key: String, val max: Int, val rangeKey: String?) :
+           val key: String, val max: Int, val rangeKey: String?, val min: Int = 0) :
     Control(id, section, label) {
     private fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
     private fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it))?.toInt() } ?: max
@@ -76,9 +76,11 @@ class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
         val m = hi().coerceAtLeast(1)
         return RenderState(ratio = value().coerceIn(0, m).toFloat() / m)
     }
+    /** Toque incrementa; ao chegar no máximo, volta pro mínimo (fan: 1..7→1; banco: 0..3→0). */
     fun cycle() {
         val m = hi().coerceAtLeast(1)
-        val next = if (value() >= m) 0 else value() + 1
+        val v = value()
+        val next = if (v >= m) min else (v + 1).coerceAtLeast(min)
         VehicleClient.set(key, next.toString())
     }
 }
@@ -151,11 +153,11 @@ object DockControls {
         // ----- ESQUERDA (clima) -----
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
-        Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE),
+        Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1),
         TxtToggle("max", 0, "MAX", DockKeys.ACMAX),
         TxtToggle("auto", 0, "AUTO", DockKeys.AUTO),
         TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
-        IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc, DockKeys.CYCLE_MODE, "1", "0"),
+        IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc, DockKeys.CYCLE_MODE, "0", "1"),
         // ----- CENTRO (condução) -----
         Mode("drive", 1, "Modo condução", R.drawable.ic_car, DockKeys.DRIVE_MODE,
             listOf(0, 2, 1),
