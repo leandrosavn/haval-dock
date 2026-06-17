@@ -119,7 +119,7 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.BOTTOM }
 
-        root = TouchFrame(this) { onUserActivity() }
+        root = TouchFrame(this, { onUserActivity() }, { hideBar(manual = true) }, { showBar() })
 
         bar = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -413,8 +413,9 @@ class OverlayService : Service() {
         }
         armTimer()
     }
-    private fun hideBar() {
-        if (SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
+    private fun hideBar(manual: Boolean = false) {
+        // gesto (manual) esconde em qualquer modo; o timer só esconde no modo auto
+        if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
         closeVolume()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
@@ -445,11 +446,36 @@ class OverlayService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
     }
 
-    private class TouchFrame(context: Context, val onTouch: () -> Unit) : FrameLayout(context) {
+    private class TouchFrame(
+        context: Context,
+        val onTouch: () -> Unit,
+        val onSwipeDown: () -> Unit,
+        val onSwipeUp: () -> Unit,
+    ) : FrameLayout(context) {
+        private val threshold = 28 * context.resources.displayMetrics.density
+        private var downY = 0f
+        private var downX = 0f
+        private var fired = false
         override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
             if (ev?.actionMasked == MotionEvent.ACTION_DOWN) onTouch()
             return super.dispatchTouchEvent(ev)
         }
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { downY = ev.y; downX = ev.x; fired = false }
+                MotionEvent.ACTION_MOVE -> {
+                    if (fired) return true
+                    val dy = ev.y - downY; val dx = ev.x - downX
+                    if (kotlin.math.abs(dy) > threshold && kotlin.math.abs(dy) > kotlin.math.abs(dx)) {
+                        fired = true
+                        if (dy > 0) onSwipeDown() else onSwipeUp()
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+        override fun onTouchEvent(ev: MotionEvent?): Boolean = true
     }
 
     companion object {
