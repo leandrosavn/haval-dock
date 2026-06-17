@@ -238,14 +238,14 @@ class OverlayService : Service() {
     private fun textTile(c: Control, label: String, onFlip: () -> Unit): View {
         val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
-            text = label; setTextColor(cMuted); textSize = 16f; setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1
-            minWidth = dp(48); setPadding(dp(5), 0, dp(5), 0)
+            text = label; setTextColor(cMuted); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; maxLines = 1; setPadding(dp(6), 0, dp(6), 0)
         }
         val ul = View(this)
         v.addView(tv)
-        v.addView(ul, LinearLayout.LayoutParams(dp(24), dp(3)).apply { topMargin = dp(7) })
+        v.addView(ul, LinearLayout.LayoutParams(dp(28), dp(3)).apply { topMargin = dp(7) })
         updaters[c.id] = { st ->
+            tv.text = label   // re-setar força re-medida (resolve o corte; igual aos modos)
             tv.setTextColor(if (st.on) cAccent else cMuted)
             ul.setBackgroundColor(if (st.on) cAccent else Color.TRANSPARENT)
         }
@@ -457,30 +457,30 @@ class OverlayService : Service() {
         val onSwipeDown: () -> Unit,
         val onSwipeUp: () -> Unit,
     ) : FrameLayout(context) {
-        private val threshold = 28 * context.resources.displayMetrics.density
+        private val threshold = 20 * context.resources.displayMetrics.density
         private var downY = 0f
         private var downX = 0f
         private var fired = false
         override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-            if (ev?.actionMasked == MotionEvent.ACTION_DOWN) onTouch()
-            return super.dispatchTouchEvent(ev)
-        }
-        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            if (ev == null) return super.dispatchTouchEvent(ev)
             when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downY = ev.y; downX = ev.x; fired = false }
+                MotionEvent.ACTION_DOWN -> { downY = ev.y; downX = ev.x; fired = false; onTouch() }
                 MotionEvent.ACTION_MOVE -> {
                     if (fired) return true
                     val dy = ev.y - downY; val dx = ev.x - downX
                     if (kotlin.math.abs(dy) > threshold && kotlin.math.abs(dy) > kotlin.math.abs(dx)) {
                         fired = true
+                        // cancela o toque nos filhos (não aciona botão) e dispara o gesto
+                        val cancel = MotionEvent.obtain(ev).also { it.action = MotionEvent.ACTION_CANCEL }
+                        super.dispatchTouchEvent(cancel); cancel.recycle()
                         if (dy > 0) onSwipeDown() else onSwipeUp()
                         return true
                     }
                 }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (fired) { fired = false; return true }
             }
-            return false
+            return super.dispatchTouchEvent(ev)
         }
-        override fun onTouchEvent(ev: MotionEvent?): Boolean = true
     }
 
     companion object {
