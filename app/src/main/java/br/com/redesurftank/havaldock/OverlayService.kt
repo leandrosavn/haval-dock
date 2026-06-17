@@ -234,7 +234,8 @@ class OverlayService : Service() {
         val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
             text = c.label; setTextColor(cMuted); textSize = 16f; setTypeface(typeface, Typeface.BOLD)
-            letterSpacing = 0.12f; gravity = Gravity.CENTER
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1
+            minWidth = dp(48); setPadding(dp(5), 0, dp(5), 0)
         }
         val ul = View(this)
         v.addView(tv)
@@ -266,7 +267,7 @@ class OverlayService : Service() {
         val ic = icon(c.icon, cAccent, 20)
         val tv = TextView(this).apply {
             setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
-            letterSpacing = 0.1f; gravity = Gravity.CENTER; text = "—"
+            gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1; setPadding(dp(4), 0, dp(4), 0); text = "—"
         }
         v.addView(ic)
         v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
