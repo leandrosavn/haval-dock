@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
@@ -23,19 +24,23 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import br.com.redesurftank.havaldock.data.Control
-import br.com.redesurftank.havaldock.data.Cycle
 import br.com.redesurftank.havaldock.data.DockControls
+import br.com.redesurftank.havaldock.data.IconToggle
+import br.com.redesurftank.havaldock.data.Level
+import br.com.redesurftank.havaldock.data.Mode
+import br.com.redesurftank.havaldock.data.Regen
+import br.com.redesurftank.havaldock.data.RenderState
 import br.com.redesurftank.havaldock.data.SettingsStore
-import br.com.redesurftank.havaldock.data.Stepper
-import br.com.redesurftank.havaldock.data.Toggle
+import br.com.redesurftank.havaldock.data.Temp
+import br.com.redesurftank.havaldock.data.TxtToggle
 import br.com.redesurftank.havaldock.data.VehicleClient
+import br.com.redesurftank.havaldock.data.Volume
 import com.beantechs.intelligentvehiclecontrol.sdk.IListener
 import java.util.concurrent.Executors
 
 /**
- * Serviço (foreground) que desenha a toolbar inferior como OVERLAY (TYPE_APPLICATION_OVERLAY),
- * sempre por cima do mediacenter/CarPlay, SÓ na faixa de baixo. Lê/escreve as funções do veículo
- * pelo [VehicleClient] e atualiza os tiles ao vivo via listener do serviço Beantechs.
+ * Toolbar inferior como overlay (TYPE_APPLICATION_OVERLAY), só na faixa de baixo, visual v2
+ * (estilo do app de referência). Lê/escreve via [VehicleClient]; IPC sempre fora da main thread.
  */
 class OverlayService : Service() {
 
@@ -48,30 +53,27 @@ class OverlayService : Service() {
     private lateinit var bar: LinearLayout
     private lateinit var handle: TextView
 
-    private val valueViews = HashMap<String, TextView>()
+    private val updaters = HashMap<String, (RenderState) -> Unit>()
+    private var volWin: View? = null
     private var hidden = false
 
-    private val barHeightPx by lazy { dp(90) }
+    private val barHeightPx by lazy { dp(84) }
     private val handleHeightPx by lazy { dp(22) }
+    private val trackPx by lazy { dp(30) }
 
-    // cores (mesmo tema do protótipo)
-    private val cAccent = Color.parseColor("#19E3B1")
-    private val cAccentSoft = Color.parseColor("#5FF0CF")
+    private val cAccent = Color.parseColor("#2DE0F0")
+    private val cTxt = Color.parseColor("#EEF4F8")
+    private val cMuted = Color.parseColor("#828C9C")
     private val cCard = Color.parseColor("#121722")
     private val cLine = Color.parseColor("#23FFFFFF")
-    private val cTxt = Color.parseColor("#EEF2F8")
-    private val cMuted = Color.parseColor("#9099A8")
-    private val cBarBg = Color.parseColor("#F20A0E14")
-    private val cOnAccent = Color.parseColor("#04140F")
+    private val cBarBg = Color.parseColor("#F2070A0E")
+    private val cOnAccent = Color.parseColor("#04161A")
 
     private val hideRunnable = Runnable { hideBar() }
 
     private val listener = object : IListener.Stub() {
-        override fun onDataChanged(key: String?, value: String?) {
-            main.post { refreshAll() }
-        }
+        override fun onDataChanged(key: String?, value: String?) { main.post { refreshAll() } }
     }
-
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == SettingsStore.KEY_MODE || key == SettingsStore.KEY_SECS) applyVisibility()
     }
@@ -85,35 +87,32 @@ class OverlayService : Service() {
         buildOverlay()
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
-        // leituras iniciais (Shizuku pode demorar a ficar pronto)
         refreshAll()
         main.postDelayed({ refreshAll() }, 1500)
         main.postDelayed({ refreshAll() }, 4000)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        applyVisibility()
-        return START_STICKY
+        applyVisibility(); return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable)
+        closeVolume()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         io.execute { runCatching { VehicleClient.unregisterListener(listener) } }
         runCatching { wm.removeView(root) }
     }
 
-    // ---- construção do overlay ----
+    // ---- overlay ----
 
     private fun buildOverlay() {
         params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            barHeightPx,
+            WindowManager.LayoutParams.MATCH_PARENT, barHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -123,24 +122,29 @@ class OverlayService : Service() {
         root = TouchFrame(this) { onUserActivity() }
 
         bar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(cBarBg)
+        }
+        // linha ciano no topo
+        bar.addView(View(this).apply { setBackgroundColor(cAccent) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)))
+
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(cBarBg)
-            setPadding(dp(18), dp(8), dp(18), dp(9))
+            setPadding(dp(40), 0, dp(40), 0)
         }
-        buildTiles(bar)
+        bar.addView(content, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        buildSections(content)
+
         root.addView(bar, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         handle = TextView(this).apply {
-            text = "▴ Haval Dock"
-            setTextColor(cAccentSoft)
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setPadding(dp(22), dp(5), dp(22), dp(6))
-            background = pill(cBarBg, dp(12), topOnly = true)
-            visibility = View.GONE
-            setOnClickListener { showBar() }
+            text = "▴ Haval Dock"; setTextColor(cAccent); textSize = 13f; gravity = Gravity.CENTER
+            setPadding(dp(22), dp(5), dp(22), dp(6)); background = pill(cBarBg, dp(12), topOnly = true)
+            visibility = View.GONE; setOnClickListener { showBar() }
         }
         root.addView(handle, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -149,160 +153,273 @@ class OverlayService : Service() {
         wm.addView(root, params)
     }
 
-    private fun buildTiles(container: LinearLayout) {
-        var prevGroup = -1
-        for (c in DockControls.ALL) {
-            if (prevGroup != -1 && c.group != prevGroup) container.addView(divider())
-            container.addView(tile(c), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-            prevGroup = c.group
-        }
+    private fun buildSections(content: LinearLayout) {
+        val secs = arrayOf(rowSection(), rowSection(), rowSection())
+        for (c in DockControls.ALL) secs[c.section].addView(tile(c))
+        content.addView(secs[0])
+        content.addView(spacer())
+        content.addView(secs[1])
+        content.addView(spacer())
+        content.addView(secs[2])
     }
 
-    private fun divider(): View = View(this).apply {
-        background = GradientDrawable().apply { setColor(cLine) }
-        val lp = LinearLayout.LayoutParams(dp(1), dp(58))
-        lp.gravity = Gravity.CENTER_VERTICAL
-        lp.marginStart = dp(7); lp.marginEnd = dp(7)
-        layoutParams = lp
+    private fun rowSection() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
     }
 
-    private fun tile(c: Control): View {
-        val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(6), dp(4), dp(6), dp(4))
-        }
-        val icon = ImageView(this).apply {
-            setImageResource(c.icon)
-            setColorFilter(cAccentSoft)
-        }
-        col.addView(icon, LinearLayout.LayoutParams(dp(22), dp(22)).apply { bottomMargin = dp(7) })
+    private fun spacer() = View(this).apply {
+        layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+    }
 
-        when (c) {
-            is Stepper -> {
-                val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-                val tv = valueText()
-                row.addView(stepButton("−") { act(c) { c.nudge(-1) } })
-                row.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8); marginEnd = dp(8) })
-                row.addView(stepButton("+") { act(c) { c.nudge(1) } })
-                valueViews[c.id] = tv
-                col.addView(row)
+    private fun tile(c: Control): View = when (c) {
+        is Temp -> tileTemp(c)
+        is Level -> tileLevel(c)
+        is Volume -> tileVolume(c)
+        is TxtToggle -> tileTxt(c)
+        is IconToggle -> tileIconToggle(c)
+        is Mode -> tileMode(c)
+        is Regen -> tileRegen(c)
+    }
+
+    private fun gap(v: View, start: Int) { (v.layoutParams as LinearLayout.LayoutParams).marginStart = dp(start) }
+
+    private fun col() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(22) }
+        setPadding(dp(4), dp(4), dp(4), dp(4))
+    }
+
+    private fun tileTemp(c: Temp): View {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        row.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(22) }
+        val tv = TextView(this).apply {
+            setTextColor(cTxt); textSize = 22f; setTypeface(typeface, Typeface.BOLD); text = "—°"
+            gravity = Gravity.CENTER; minWidth = dp(74)
+        }
+        row.addView(chev("‹") { act(c) { c.nudge(-1) } })
+        row.addView(tv)
+        row.addView(chev("›") { act(c) { c.nudge(1) } })
+        updaters[c.id] = { st -> tv.text = st.text }
+        return row
+    }
+
+    private fun chev(s: String, onClick: () -> Unit) = TextView(this).apply {
+        text = s; setTextColor(cAccent); textSize = 26f; gravity = Gravity.CENTER
+        setPadding(dp(8), dp(2), dp(8), dp(2)); isClickable = true; setOnClickListener { onClick() }
+    }
+
+    private fun tileLevel(c: Level): View {
+        val v = col(); v.isClickable = true
+        v.addView(icon(c.icon, cTxt, 26))
+        val track = makeTrack()
+        v.addView(track.first)
+        updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
+        v.setOnClickListener { act(c) { c.cycle() } }
+        return v
+    }
+
+    private fun tileVolume(c: Volume): View {
+        val v = col(); v.isClickable = true
+        v.addView(icon(c.icon, cTxt, 26))
+        val track = makeTrack()
+        v.addView(track.first)
+        updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
+        v.setOnClickListener { onUserActivity(); openVolume(c) }
+        return v
+    }
+
+    private fun tileTxt(c: TxtToggle): View {
+        val v = col(); v.isClickable = true
+        val tv = TextView(this).apply {
+            text = c.label; setTextColor(cMuted); textSize = 16f; setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.12f; gravity = Gravity.CENTER
+        }
+        val ul = View(this)
+        v.addView(tv)
+        v.addView(ul, LinearLayout.LayoutParams(dp(24), dp(3)).apply { topMargin = dp(7) })
+        updaters[c.id] = { st ->
+            tv.setTextColor(if (st.on) cAccent else cMuted)
+            ul.setBackgroundColor(if (st.on) cAccent else Color.TRANSPARENT)
+        }
+        v.setOnClickListener { act(c) { c.flip() } }
+        return v
+    }
+
+    private fun tileIconToggle(c: IconToggle): View {
+        val v = col(); v.isClickable = true
+        val ic = icon(c.icon, cTxt, 46)   // recirc maior
+        v.addView(ic)
+        val track = makeTrack()
+        v.addView(track.first)
+        updaters[c.id] = { st ->
+            ic.setColorFilter(if (st.on) cAccent else cTxt)
+            setTrack(track.second, if (st.on) 1f else 0f)
+        }
+        v.setOnClickListener { act(c) { c.flip() } }
+        return v
+    }
+
+    private fun tileMode(c: Mode): View {
+        val v = col(); v.isClickable = true
+        val ic = icon(c.icon, cAccent, 20)
+        val tv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 14f; setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.1f; gravity = Gravity.CENTER; text = "—"
+        }
+        v.addView(ic)
+        v.addView(tv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
+        v.setOnClickListener { act(c) { c.next() } }
+        return v
+    }
+
+    private fun tileRegen(c: Regen): View {
+        val v = col(); v.isClickable = true
+        val ic = icon(c.icon, cAccent, 24)
+        v.addView(ic)
+        val barsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val bars = Array(3) { View(this) }
+        bars.forEachIndexed { i, b ->
+            b.background = pill(cLine, dp(1))
+            barsRow.addView(b, LinearLayout.LayoutParams(dp(7), dp(5)).apply { if (i > 0) marginStart = dp(3) })
+        }
+        v.addView(barsRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        updaters[c.id] = { st ->
+            ic.setColorFilter(st.color)
+            bars.forEachIndexed { i, b -> b.background = pill(if (i < st.bars) st.color else cLine, dp(1)) }
+        }
+        v.setOnClickListener { act(c) { c.next() } }
+        return v
+    }
+
+    private fun icon(res: Int, tint: Int, sizeDp: Int) = ImageView(this).apply {
+        setImageResource(res); setColorFilter(tint)
+        layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
+    }
+
+    /** track (fundo + fill) para o sublinhado de nível. retorna (container, fillView). */
+    private fun makeTrack(): Pair<View, View> {
+        val track = FrameLayout(this).apply {
+            background = pill(cLine, dp(2))
+            layoutParams = LinearLayout.LayoutParams(trackPx, dp(3)).apply { topMargin = dp(7) }
+        }
+        val fill = View(this).apply { setBackgroundColor(cAccent) }
+        track.addView(fill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
+        return Pair(track, fill)
+    }
+
+    private fun setTrack(fill: View, ratio: Float) {
+        val lp = fill.layoutParams; lp.width = (trackPx * ratio.coerceIn(0f, 1f)).toInt(); fill.layoutParams = lp
+    }
+
+    // ---- volume popup (janela vertical separada) ----
+
+    private fun openVolume(c: Volume) {
+        if (volWin != null) { closeVolume(); return }
+        val pop = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+        val valTv = TextView(this).apply {
+            setTextColor(cAccent); textSize = 22f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
+        }
+        val trackH = dp(160)
+        val vtrack = FrameLayout(this).apply { background = pill(cCard, dp(13)) }
+        val vfill = View(this).apply { setBackgroundColor(cAccent) }
+        vtrack.addView(vfill, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0, Gravity.BOTTOM))
+
+        fun draw() {
+            io.execute {
+                val v = c.value(); val hi = c.hi(); val r = v.toFloat() / hi
+                main.post {
+                    val lp = vfill.layoutParams; lp.height = (trackH * r).toInt(); vfill.layoutParams = lp
+                    valTv.text = v.toString()
+                }
             }
-            is Cycle -> {
-                val tv = modeText()
-                valueViews[c.id] = tv
-                col.addView(tv)
-                col.setOnClickListener { act(c) { c.next() } }
-                col.isClickable = true
-            }
-            is Toggle -> {
-                val tv = pillText()
-                valueViews[c.id] = tv
-                col.addView(tv)
-                col.setOnClickListener { act(c) { c.flip() } }
-                col.isClickable = true
-            }
         }
-        return col
+        fun change(d: Int) { io.execute { c.set(c.value() + d) }; onUserActivity(); main.postDelayed({ draw(); refreshAll() }, 60) }
+
+        pop.addView(volBtn("+") { change(1) })
+        pop.addView(vtrack, LinearLayout.LayoutParams(dp(26), trackH).apply { topMargin = dp(10); bottomMargin = dp(10) })
+        pop.addView(volBtn("−") { change(-1) })
+        pop.addView(valTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+
+        vtrack.setOnTouchListener { view, e ->
+            if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) {
+                val r = (1f - e.y / view.height).coerceIn(0f, 1f)
+                io.execute { c.set((r * c.hi()).toInt()) }; onUserActivity()
+                main.postDelayed({ draw(); refreshAll() }, 30)
+            }
+            true
+        }
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.BOTTOM or Gravity.END; x = dp(40); y = barHeightPx + dp(8) }
+        runCatching { wm.addView(pop, lp); volWin = pop; draw() }
     }
 
-    private fun valueText() = TextView(this).apply {
-        setTextColor(cTxt); textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD)
-        gravity = Gravity.CENTER; text = "—"
+    private fun volBtn(s: String, onClick: () -> Unit) = TextView(this).apply {
+        text = s; setTextColor(cTxt); textSize = 26f; gravity = Gravity.CENTER
+        background = pill(cCard, dp(13)); isClickable = true; setOnClickListener { onClick() }
+        layoutParams = LinearLayout.LayoutParams(dp(52), dp(46))
     }
 
-    private fun modeText() = TextView(this).apply {
-        setTextColor(cAccentSoft); textSize = 14f; setTypeface(typeface, android.graphics.Typeface.BOLD)
-        gravity = Gravity.CENTER; text = "—"
-    }
+    private fun closeVolume() { volWin?.let { v -> runCatching { wm.removeView(v) } }; volWin = null }
 
-    private fun pillText() = TextView(this).apply {
-        setTextColor(cMuted); textSize = 13f; setTypeface(typeface, android.graphics.Typeface.BOLD)
-        gravity = Gravity.CENTER; setPadding(dp(14), dp(6), dp(14), dp(6))
-        background = pill(cCard, dp(11)); text = "—"
-    }
-
-    private fun stepButton(label: String, onClick: () -> Unit): TextView = TextView(this).apply {
-        text = label; setTextColor(cTxt); textSize = 18f; gravity = Gravity.CENTER
-        background = pill(cCard, dp(9))
-        layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
-        isClickable = true
-        setOnClickListener { onClick() }
-    }
-
-    // ---- ações / refresh (IPC sempre fora da main thread) ----
+    // ---- ações / refresh ----
 
     private fun act(c: Control, action: () -> Unit) {
         onUserActivity()
         io.execute {
             runCatching { action() }
-            val text = c.display()
-            val on = (c as? Toggle)?.isOn()
-            main.post { applyTile(c, text, on) }
+            val st = c.render()
+            main.post { updaters[c.id]?.invoke(st) }
         }
     }
 
     private fun refreshAll() {
         io.execute {
-            val snap = DockControls.ALL.map { c ->
-                Triple(c, c.display(), (c as? Toggle)?.isOn())
-            }
-            main.post { snap.forEach { (c, text, on) -> applyTile(c, text, on) } }
+            val snap = DockControls.ALL.map { it.id to it.render() }
+            main.post { snap.forEach { (id, st) -> updaters[id]?.invoke(st) } }
         }
     }
 
-    private fun applyTile(c: Control, text: String, on: Boolean?) {
-        val tv = valueViews[c.id] ?: return
-        tv.text = text
-        if (c is Toggle) {
-            if (on == true) {
-                tv.background = pill(cAccent, dp(11)); tv.setTextColor(cOnAccent)
-            } else {
-                tv.background = pill(cCard, dp(11)); tv.setTextColor(cMuted)
-            }
-        }
-    }
+    // ---- visibilidade ----
 
-    // ---- visibilidade / auto-ocultar ----
-
-    private fun onUserActivity() {
-        if (hidden) showBar() else armTimer()
-    }
-
-    private fun applyVisibility() {
-        showBar()
-    }
-
+    private fun onUserActivity() { if (hidden) showBar() else armTimer() }
+    private fun applyVisibility() { showBar() }
     private fun armTimer() {
         main.removeCallbacks(hideRunnable)
-        if (SettingsStore.mode(this) == SettingsStore.MODE_AUTO) {
+        if (SettingsStore.mode(this) == SettingsStore.MODE_AUTO)
             main.postDelayed(hideRunnable, SettingsStore.secs(this) * 1000L)
-        }
     }
-
     private fun showBar() {
         main.removeCallbacks(hideRunnable)
         if (hidden) {
-            hidden = false
-            bar.visibility = View.VISIBLE
-            handle.visibility = View.GONE
-            params.height = barHeightPx
-            runCatching { wm.updateViewLayout(root, params) }
+            hidden = false; bar.visibility = View.VISIBLE; handle.visibility = View.GONE
+            params.height = barHeightPx; runCatching { wm.updateViewLayout(root, params) }
         }
         armTimer()
     }
-
     private fun hideBar() {
         if (SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
-        hidden = true
-        bar.visibility = View.GONE
-        handle.visibility = View.VISIBLE
-        params.height = handleHeightPx
-        runCatching { wm.updateViewLayout(root, params) }
+        closeVolume()
+        hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
+        params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
     }
 
-    // ---- utilidades ----
+    // ---- utils ----
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
@@ -312,29 +429,21 @@ class OverlayService : Service() {
             if (topOnly) cornerRadii = floatArrayOf(
                 radius.toFloat(), radius.toFloat(), radius.toFloat(), radius.toFloat(), 0f, 0f, 0f, 0f)
             else cornerRadius = radius.toFloat()
-            setStroke(dp(1), cLine)
         }
 
     private fun buildNotification(): Notification {
         val channelId = "haval_dock_overlay"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
-            if (nm.getNotificationChannel(channelId) == null) {
-                nm.createNotificationChannel(
-                    NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN))
-            }
+            if (nm.getNotificationChannel(channelId) == null)
+                nm.createNotificationChannel(NotificationChannel(channelId, "Haval Dock", NotificationManager.IMPORTANCE_MIN))
         }
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             Notification.Builder(this, channelId) else @Suppress("DEPRECATION") Notification.Builder(this)
-        return builder
-            .setContentTitle("Haval Dock")
-            .setContentText("Barra inferior ativa")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
-            .build()
+        return b.setContentTitle("Haval Dock").setContentText("Barra inferior ativa")
+            .setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
     }
 
-    /** FrameLayout que avisa qualquer toque (para resetar o timer de inatividade). */
     private class TouchFrame(context: Context, val onTouch: () -> Unit) : FrameLayout(context) {
         override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
             if (ev?.actionMasked == MotionEvent.ACTION_DOWN) onTouch()
@@ -344,15 +453,10 @@ class OverlayService : Service() {
 
     companion object {
         private const val NOTIF_ID = 42
-
         fun start(context: Context) {
             val i = Intent(context, OverlayService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                context.startForegroundService(i) else context.startService(i)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(i) else context.startService(i)
         }
-
-        fun stop(context: Context) {
-            context.stopService(Intent(context, OverlayService::class.java))
-        }
+        fun stop(context: Context) { context.stopService(Intent(context, OverlayService::class.java)) }
     }
 }
