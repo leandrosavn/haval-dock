@@ -27,6 +27,7 @@ import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockControls
 import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Level
+import br.com.redesurftank.havaldock.data.MaxAc
 import br.com.redesurftank.havaldock.data.Mode
 import br.com.redesurftank.havaldock.data.Regen
 import br.com.redesurftank.havaldock.data.RenderState
@@ -176,6 +177,7 @@ class OverlayService : Service() {
         is Level -> tileLevel(c)
         is Volume -> tileVolume(c)
         is TxtToggle -> tileTxt(c)
+        is MaxAc -> tileMax(c)
         is IconToggle -> tileIconToggle(c)
         is Mode -> tileMode(c)
         is Regen -> tileRegen(c)
@@ -230,10 +232,13 @@ class OverlayService : Service() {
         return v
     }
 
-    private fun tileTxt(c: TxtToggle): View {
+    private fun tileTxt(c: TxtToggle): View = textTile(c, c.label) { c.flip() }
+    private fun tileMax(c: MaxAc): View = textTile(c, c.label) { c.flip() }
+
+    private fun textTile(c: Control, label: String, onFlip: () -> Unit): View {
         val v = col(); v.isClickable = true
         val tv = TextView(this).apply {
-            text = c.label; setTextColor(cMuted); textSize = 16f; setTypeface(typeface, Typeface.BOLD)
+            text = label; setTextColor(cMuted); textSize = 16f; setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER; setSingleLine(true); maxLines = 1
             minWidth = dp(48); setPadding(dp(5), 0, dp(5), 0)
         }
@@ -244,7 +249,7 @@ class OverlayService : Service() {
             tv.setTextColor(if (st.on) cAccent else cMuted)
             ul.setBackgroundColor(if (st.on) cAccent else Color.TRANSPARENT)
         }
-        v.setOnClickListener { act(c) { c.flip() } }
+        v.setOnClickListener { act(c) { onFlip() } }
         return v
     }
 

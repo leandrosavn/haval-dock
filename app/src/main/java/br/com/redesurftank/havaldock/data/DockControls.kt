@@ -1,5 +1,6 @@
 package br.com.redesurftank.havaldock.data
 
+import android.content.Context
 import androidx.annotation.DrawableRes
 import br.com.redesurftank.havaldock.R
 import java.util.Locale
@@ -11,10 +12,11 @@ object DockKeys {
     const val FRONT_TEMP_RANGE = "car.hvac.front_temperature_range"
     const val FAN_SPEED = "car.hvac.fan_speed"
     const val FAN_RANGE = "car.hvac.fan_speed_range"
-    const val ACMAX = "car.hvac.acmax_enable"
     const val AUTO = "car.hvac.auto_enable"
     const val SYNC = "car.hvac.sync_enable"
     const val CYCLE_MODE = "car.hvac.cycle_mode"
+    const val POWER_MODE = "car.hvac.power_mode"
+    const val AC_ENABLE = "car.hvac.ac_enable"
     const val DRIVER_SEAT_VENT = "car.comfort_setting.driver_seat_ventilation_level"
     const val PASS_SEAT_VENT = "car.comfort_setting.passenger_seat_ventilation_level"
     const val SEAT_VENT_MAX = "car.comfort_setting.seat_ventilation_max_level"
@@ -148,13 +150,58 @@ class Regen(id: String, section: Int, label: String, @DrawableRes val icon: Int,
     }
 }
 
+/** Estado persistente do Max A/C (não há flag nativa nesse carro — guardamos local). */
+object MaxAcStore {
+    private const val PREFS = "maxac"
+    private lateinit var appCtx: Context
+    fun init(c: Context) { appCtx = c.applicationContext }
+    private fun prefs() = appCtx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun isOn() = prefs().getBoolean("on", false)
+    fun setOn(v: Boolean) = prefs().edit().putBoolean("on", v).apply()
+    fun saveValues(m: Map<String, String>) {
+        val e = prefs().edit(); m.forEach { (k, v) -> e.putString("s_$k", v) }; e.apply()
+    }
+    fun savedValue(k: String): String? = prefs().getString("s_$k", null)
+}
+
+/**
+ * MAX A/C — não existe flag nativa (`acmax_enable` não tem efeito nesse carro), então replicamos
+ * a rotina do Impulse: ao ligar, SALVA o estado e força resfriamento máximo; ao desligar, RESTAURA.
+ */
+class MaxAc(id: String, section: Int, label: String) : Control(id, section, label) {
+    private val keys = listOf(
+        DockKeys.POWER_MODE, DockKeys.AC_ENABLE, DockKeys.FAN_SPEED,
+        DockKeys.DRIVER_TEMP, DockKeys.PASS_TEMP, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
+    )
+    override fun render() = RenderState(on = MaxAcStore.isOn())
+    fun flip() { if (MaxAcStore.isOn()) restore() else apply() }
+
+    private fun apply() {
+        MaxAcStore.saveValues(keys.associateWith { VehicleClient.getData(it) ?: "" })
+        VehicleClient.set(DockKeys.POWER_MODE, "1")
+        VehicleClient.set(DockKeys.AUTO, "0")
+        VehicleClient.set(DockKeys.FAN_SPEED, "7")
+        VehicleClient.set(DockKeys.DRIVER_TEMP, "16.0")
+        VehicleClient.set(DockKeys.PASS_TEMP, "16.0")
+        VehicleClient.set(DockKeys.SYNC, "1")
+        VehicleClient.set(DockKeys.CYCLE_MODE, "0")   // recirc ON (este carro: 0=recirc)
+        VehicleClient.set(DockKeys.AC_ENABLE, "1")
+        MaxAcStore.setOn(true)
+    }
+
+    private fun restore() {
+        keys.forEach { k -> MaxAcStore.savedValue(k)?.takeIf { it.isNotEmpty() }?.let { VehicleClient.set(k, it) } }
+        MaxAcStore.setOn(false)
+    }
+}
+
 object DockControls {
     val ALL: List<Control> = listOf(
         // ----- ESQUERDA (clima) -----
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
         Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1),
-        TxtToggle("max", 0, "MAX", DockKeys.ACMAX),
+        MaxAc("max", 0, "MAX"),
         TxtToggle("auto", 0, "AUTO", DockKeys.AUTO),
         TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
         IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc, DockKeys.CYCLE_MODE, "0", "1"),
@@ -176,7 +223,7 @@ object DockControls {
 
     val MONITORED: List<String> = listOf(
         DockKeys.DRIVER_TEMP, DockKeys.PASS_TEMP, DockKeys.FAN_SPEED, DockKeys.DRIVER_SEAT_VENT,
-        DockKeys.PASS_SEAT_VENT, DockKeys.ACMAX, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
+        DockKeys.PASS_SEAT_VENT, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
         DockKeys.DRIVE_MODE, DockKeys.STEER_MODE, DockKeys.REGEN_LEVEL, DockKeys.MEDIA_VOLUME,
     )
 }
