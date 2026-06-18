@@ -175,6 +175,19 @@ class MainActivity : ComponentActivity() {
                     LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
                 }
             }
+
+            // ---- diagnóstico (teste de displays cluster/HUD) ----
+            SectionCard("Diagnóstico") {
+                var probeOn by remember { mutableStateOf(false) }
+                RowSwitch(
+                    "Teste cluster / HUD",
+                    "Desenha um overlay de teste nos displays secundários (pra mapear cluster e HUD).",
+                    probeOn
+                ) { on ->
+                    probeOn = on
+                    if (on) DisplayProbeService.start(this@MainActivity) else DisplayProbeService.stop(this@MainActivity)
+                }
+            }
         }
     }
 
