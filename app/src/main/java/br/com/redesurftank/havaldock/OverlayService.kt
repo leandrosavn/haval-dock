@@ -158,9 +158,9 @@ class OverlayService : Service() {
         val secs = arrayOf(rowSection(), rowSection(), rowSection())
         for (c in DockControls.ALL) secs[c.section].addView(tile(c))
         content.addView(secs[0])
-        content.addView(spacer())
+        content.addView(fixedSpacer(90))   // gap fixo: grupo do meio fica perto do motorista
         content.addView(secs[1])
-        content.addView(spacer())
+        content.addView(spacer())          // o restante da folga vai p/ a direita (passageiro encosta na borda)
         content.addView(secs[2])
     }
 
@@ -170,6 +170,10 @@ class OverlayService : Service() {
 
     private fun spacer() = View(this).apply {
         layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+    }
+
+    private fun fixedSpacer(w: Int) = View(this).apply {
+        layoutParams = LinearLayout.LayoutParams(dp(w), 1)
     }
 
     private fun tile(c: Control): View = when (c) {

@@ -24,7 +24,7 @@
   /* ===== A BARRA ===== */
   .bar{
     position:absolute; left:0; right:0; bottom:0; height:84px;
-    display:flex; align-items:center; justify-content:space-between; gap:24px;
+    display:flex; align-items:center; justify-content:flex-start; gap:24px;
     padding:0 40px;
     background:linear-gradient(180deg, rgba(6,9,12,.55), rgba(6,9,12,.94));
     border-top:2px solid var(--accent);
@@ -34,6 +34,8 @@
   }
   .bar.hidden{transform:translateY(102%);}
   .sec{display:flex; align-items:center; gap:30px;}
+  .sec1{margin-left:100px;}   /* grupo do meio mais perto do motorista */
+  .sec2{margin-left:auto;}    /* passageiro empurrado p/ a direita */
 
   /* temperatura com setas */
   .temp{display:flex; align-items:center; gap:12px;}
@@ -229,7 +231,7 @@
   function render(){
     const bar=document.getElementById('bar'); bar.innerHTML='';
     [0,1,2].forEach(s=>{
-      const sec=document.createElement('div'); sec.className='sec';
+      const sec=document.createElement('div'); sec.className='sec sec'+s;
       ITEMS.forEach((it,i)=>{ if(it.sec===s) sec.appendChild(tile(it,i)); });
       bar.appendChild(sec);
     });
