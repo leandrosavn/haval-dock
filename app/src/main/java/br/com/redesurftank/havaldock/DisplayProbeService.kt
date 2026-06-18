@@ -39,30 +39,42 @@ class DisplayProbeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(NOTIF_ID, buildNotification())
+        runCatching { startForeground(NOTIF_ID, buildNotification()) }
         val sb = StringBuilder()
-        val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val displays = dm.displays
-        sb.append("Displays visíveis p/ o app: ${displays.size}\n")
-        for (d in displays) {
-            val m = DisplayMetrics()
-            @Suppress("DEPRECATION") d.getRealMetrics(m)
-            sb.append("• id=${d.displayId}  \"${d.name}\"  ${m.widthPixels}x${m.heightPixels}  flags=${d.flags}\n")
-        }
-        sb.append("\n")
-        for (d in displays) {
-            if (d.displayId == Display.DEFAULT_DISPLAY) continue
-            val e1 = tryShow(d, overlayType = false)
-            if (e1 == null) {
-                sb.append("Display ${d.displayId}: overlay OK ✓\n")
-            } else {
-                sb.append("Display ${d.displayId}: falhou (${e1})\n")
-                val e2 = tryShow(d, overlayType = true)
-                sb.append(if (e2 == null) "  → c/ TYPE_APPLICATION_OVERLAY: OK ✓\n" else "  → c/ OVERLAY: falhou (${e2})\n")
+        try {
+            val dm = getSystemService(DisplayManager::class.java)
+            if (dm == null) { finish(sb.append("DisplayManager == null\n")); return }
+            val displays = dm.displays ?: emptyArray()
+            sb.append("Displays visíveis p/ o app: ${displays.size}\n")
+            for (d in displays) {
+                runCatching {
+                    val m = DisplayMetrics()
+                    @Suppress("DEPRECATION") d.getRealMetrics(m)
+                    sb.append("• id=${d.displayId}  \"${d.name}\"  ${m.widthPixels}x${m.heightPixels}  flags=${d.flags}\n")
+                }.onFailure { sb.append("• id=${d.displayId}: erro ao ler (${it.message})\n") }
             }
+            sb.append("\n")
+            for (d in displays) {
+                if (d.displayId == Display.DEFAULT_DISPLAY) continue
+                val e1 = tryShow(d, overlayType = false)
+                if (e1 == null) {
+                    sb.append("Display ${d.displayId}: overlay OK ✓\n")
+                } else {
+                    sb.append("Display ${d.displayId}: falhou (${e1})\n")
+                    val e2 = tryShow(d, overlayType = true)
+                    sb.append(if (e2 == null) "  → c/ TYPE_APPLICATION_OVERLAY: OK ✓\n" else "  → c/ OVERLAY: falhou (${e2})\n")
+                }
+            }
+            if (displays.size <= 1)
+                sb.append("\n⚠️ Só a tela central foi exposta — cluster/HUD NÃO aparecem pra este app.\n")
+        } catch (t: Throwable) {
+            sb.append("\nERRO: ${t.javaClass.simpleName}: ${t.message}\n")
+            t.stackTrace.take(5).forEach { sb.append("  at $it\n") }
         }
-        if (displays.size <= 1)
-            sb.append("\n⚠️ Só a tela central foi exposta — cluster/HUD NÃO aparecem pra este app.\n")
+        finish(sb)
+    }
+
+    private fun finish(sb: StringBuilder) {
         ProbeResult.log = sb.toString()
         Log.w(TAG, "\n" + ProbeResult.log)
     }
