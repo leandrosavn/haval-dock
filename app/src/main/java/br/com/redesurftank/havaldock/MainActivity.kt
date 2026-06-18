@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -187,6 +188,12 @@ class MainActivity : ComponentActivity() {
                     probeOn = on
                     if (on) DisplayProbeService.start(this@MainActivity) else DisplayProbeService.stop(this@MainActivity)
                 }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    ProbeResult.log,
+                    color = Muted, fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace, lineHeight = 16.sp
+                )
             }
         }
     }

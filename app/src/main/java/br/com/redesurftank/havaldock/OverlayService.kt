@@ -242,7 +242,10 @@ class OverlayService : Service() {
             gravity = Gravity.CENTER; maxLines = 1; setPadding(dp(6), 0, dp(6), 0)
         }
         val ul = View(this)
-        v.addView(tv)
+        // WRAP_CONTENT explícito: em LinearLayout VERTICAL o padrão é MATCH_PARENT, o que fazia
+        // o texto encolher à largura do sublinhado (28dp) e CORTAR (MAX/AUTO/SYNC).
+        v.addView(tv, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         v.addView(ul, LinearLayout.LayoutParams(dp(28), dp(3)).apply { topMargin = dp(7) })
         updaters[c.id] = { st ->
             tv.text = label   // re-setar força re-medida (resolve o corte; igual aos modos)
