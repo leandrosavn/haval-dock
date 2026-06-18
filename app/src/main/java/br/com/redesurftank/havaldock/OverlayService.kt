@@ -406,7 +406,9 @@ class OverlayService : Service() {
 
     // ---- visibilidade ----
 
-    private fun onUserActivity() { if (hidden) showBar() else armTimer() }
+    // NÃO mostrar no toque (DOWN) quando escondida — senão a janela redimensiona no meio do
+    // gesto e o deslocamento de coordenadas vira um falso swipe-down. Mostrar só via swipe-up/alça.
+    private fun onUserActivity() { if (!hidden) armTimer() }
     private fun applyVisibility() { showBar() }
     private fun armTimer() {
         main.removeCallbacks(hideRunnable)
