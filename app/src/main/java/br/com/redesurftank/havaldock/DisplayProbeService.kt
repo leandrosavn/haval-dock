@@ -56,14 +56,9 @@ class DisplayProbeService : Service() {
             sb.append("\n")
             for (d in displays) {
                 if (d.displayId == Display.DEFAULT_DISPLAY) continue
-                val e1 = tryShow(d, overlayType = false)
-                if (e1 == null) {
-                    sb.append("Display ${d.displayId}: overlay OK ✓\n")
-                } else {
-                    sb.append("Display ${d.displayId}: falhou (${e1})\n")
-                    val e2 = tryShow(d, overlayType = true)
-                    sb.append(if (e2 == null) "  → c/ TYPE_APPLICATION_OVERLAY: OK ✓\n" else "  → c/ OVERLAY: falhou (${e2})\n")
-                }
+                val r = tryShow(d)
+                sb.append(if (r == null) "Display ${d.displayId}: overlay OK ✓\n"
+                          else "Display ${d.displayId}: falhou — $r\n")
             }
             if (displays.size <= 1)
                 sb.append("\n⚠️ Só a tela central foi exposta — cluster/HUD NÃO aparecem pra este app.\n")
@@ -79,12 +74,20 @@ class DisplayProbeService : Service() {
         Log.w(TAG, "\n" + ProbeResult.log)
     }
 
-    private fun tryShow(d: Display, overlayType: Boolean): String? = try {
-        val p = ProbePresentation(this, d)
-        if (overlayType) p.window?.setType(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE)
+    /** Tenta desenhar no display; null = sucesso. 1) contexto de display, 2) appCtx + overlay. */
+    private fun tryShow(d: Display): String? {
+        val dctx = runCatching { createDisplayContext(d) }.getOrNull() ?: applicationContext
+        val e1 = show(dctx, d, null) ?: return null
+        val t = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        val e2 = show(applicationContext, d, t) ?: return null
+        return "ctxDisplay($e1) / appCtx+overlay($e2)"
+    }
+
+    private fun show(ctx: Context, d: Display, type: Int?): String? = try {
+        val p = ProbePresentation(ctx, d)
+        if (type != null) p.window?.setType(type)
         p.show()
         presentations.add(p)
         null
