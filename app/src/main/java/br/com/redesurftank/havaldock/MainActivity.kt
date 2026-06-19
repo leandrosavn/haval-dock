@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -175,25 +174,6 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(10.dp))
                     LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
                 }
-            }
-
-            // ---- diagnóstico (teste de displays cluster/HUD) ----
-            SectionCard("Diagnóstico") {
-                var probeOn by remember { mutableStateOf(false) }
-                RowSwitch(
-                    "Teste cluster / HUD",
-                    "Desenha um overlay de teste nos displays secundários (pra mapear cluster e HUD).",
-                    probeOn
-                ) { on ->
-                    probeOn = on
-                    if (on) DisplayProbeService.start(this@MainActivity) else DisplayProbeService.stop(this@MainActivity)
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    ProbeResult.log,
-                    color = Muted, fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace, lineHeight = 16.sp
-                )
             }
         }
     }
