@@ -37,11 +37,6 @@
             android:name=".OverlayService"
             android:exported="false" />
 
-        <!-- TESTE (descartável): overlay nos displays secundários (cluster/HUD) -->
-        <service
-            android:name=".DisplayProbeService"
-            android:exported="false" />
-
         <!-- Religar a barra quando o carro liga -->
         <receiver
             android:name=".BootReceiver"

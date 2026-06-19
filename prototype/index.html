@@ -68,6 +68,14 @@
   .mode .ic svg{width:20px; height:20px;}
   .mode .ml{font-size:14px; font-weight:800; letter-spacing:1.5px;}
 
+  /* fluxo de ar: 5 ícones lado a lado, seleção mutuamente exclusiva */
+  .airsel{display:flex; align-items:center; gap:6px;}
+  .airsel button{appearance:none; border:0; background:transparent; cursor:pointer; padding:5px; border-radius:11px;
+                 display:grid; place-items:center; color:var(--muted); transition:.12s;}
+  .airsel button svg{width:30px; height:26px; display:block;}
+  .airsel button:hover{color:var(--txt);}
+  .airsel button.on{color:var(--accent); background:rgba(var(--glow),.14); box-shadow:0 0 0 1px rgba(var(--glow),.45), 0 0 12px rgba(var(--glow),.22);}
+
   /* regeneração: raio verde + barras de nível */
   .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
   .regen .ic{width:24px; height:24px; color:var(--green); display:grid; place-items:center;}
@@ -209,6 +217,15 @@
   const MCOL={c:'var(--accent)', g:'var(--green)', r:'var(--red)', w:'var(--txt)'};
   const REGENCOL=['var(--green)','#ffc23c','var(--red)'];   // Baixo=verde, Normal=amarelo, Alto=vermelho
 
+  // fluxo de ar — 5 posições (pessoa + setas de direção / para-brisa)
+  const _P='<circle cx="14.6" cy="6.4" r="2.6"/><path d="M12.1 9.6C12.1 9.6 12.5 9.4 13.1 9.4L16 9.4C16.6 9.4 17 9.8 17 10.4L17 13.2L20.6 13.2C21.1 13.2 21.5 13.6 21.5 14.15C21.5 14.7 21.1 15.1 20.6 15.1L15.2 15.1C13.5 15.1 12.1 13.7 12.1 12Z"/>';
+  const _AF='<path d="M2.6 12.8L7 7.2" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="M8.6 5.4L4.6 6L6.6 9.2Z"/>';
+  const _AFt='<path d="M2.6 8.4L7 14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="M8.6 15.8L4.6 15.2L6.6 12Z"/>';
+  const _W='<path d="M4.4 18C4.4 14.4 8 12.8 12 12.8C16 12.8 19.6 14.4 19.6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11.8V6M6.4 7.6L8 5.6L9.6 7.6"/><path d="M12 11.8V5M10.4 6.6L12 4.6L13.6 6.6"/><path d="M16 11.8V6M14.4 7.6L16 5.6L17.6 7.6"/></g>';
+  const _Wsm='<path d="M2 9.2C2 7.4 3.8 6.4 5.6 6.4C7.4 6.4 9.2 7.4 9.2 9.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.7 5.8V3.2M2.9 4L3.7 3L4.5 4"/><path d="M5.6 5.8V2.8M4.8 3.6L5.6 2.6L6.4 3.6"/><path d="M7.5 5.8V3.2M6.7 4L7.5 3L8.3 4"/></g>';
+  const _air=s=>'<svg viewBox="0 0 24 24" fill="currentColor">'+s+'</svg>';
+  const AIR=[_air(_AF+_P), _air(_AF+_AFt+_P), _air(_AFt+_P), _air(_AFt+_P+_Wsm), _air(_W)];
+
   // ESQUERDA -> CENTRO -> DIREITA (estilo do app de referência)
   const ITEMS=[
     {sec:0, type:'temp',  label:'Temp. motorista',    val:23.0, min:16, max:32, step:0.5},
@@ -218,6 +235,7 @@
     {sec:0, type:'text',  label:'AUTO', on:true},
     {sec:0, type:'text',  label:'SYNC', on:false},
     {sec:0, type:'itog',  icon:'recirc', label:'Recirculador', on:false, wide:true},
+    {sec:0, type:'airsel', label:'Fluxo de ar', idx:0, opts:['Rosto','Rosto + Pés','Pés','Pés + Pára-brisa','Pára-brisa']},
 
     {sec:1, type:'mode',  icon:'car',   label:'Modo condução', opts:[['Normal','c'],['Eco','g'],['Sport','r'],['Neve','c']], idx:2},
     {sec:1, type:'mode',  icon:'steer', label:'Modo direção',  opts:[['Conforto','c'],['Normal','w'],['Esportiva','r']], idx:1},
@@ -268,6 +286,16 @@
       const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
       el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
       el.addEventListener('click',e=>{ e.stopPropagation(); activity(); openVol(it); });
+      return el;
+    }
+    if(it.type==='airsel'){
+      const el=document.createElement('div'); el.className='airsel'; el.title=it.label;
+      AIR.forEach((ic,k)=>{
+        const b=document.createElement('button'); b.innerHTML=ic; b.title=it.opts[k];
+        if(k===it.idx) b.className='on';
+        b.addEventListener('click',()=>{ it.idx=k; activity(); render(); });
+        el.appendChild(b);
+      });
       return el;
     }
     if(it.type==='mode'){

@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -58,8 +60,8 @@ class OverlayService : Service() {
     private var volWin: View? = null
     private var hidden = false
 
-    private val barHeightPx by lazy { dp(84) }
-    private val handleHeightPx by lazy { dp(22) }
+    private val barHeightPx by lazy { dp(BAR_DP) }
+    private val handleHeightPx by lazy { dp(HANDLE_DP) }
     private val trackPx by lazy { dp(30) }
 
     private val cAccent = Color.parseColor("#2DE0F0")
@@ -78,6 +80,10 @@ class OverlayService : Service() {
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == SettingsStore.KEY_MODE || key == SettingsStore.KEY_SECS) applyVisibility()
     }
+    // Outro app (ex.: haval-radio) pede o estado atual da barra; respondemos com um broadcast.
+    private val requestReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) { broadcastBarState() }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -87,6 +93,8 @@ class OverlayService : Service() {
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         buildOverlay()
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
+        registerRequestReceiver()
+        broadcastBarState()
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
         refreshAll()
         main.postDelayed({ refreshAll() }, 1500)
@@ -102,6 +110,9 @@ class OverlayService : Service() {
         main.removeCallbacks(hideRunnable)
         closeVolume()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
+        runCatching { unregisterReceiver(requestReceiver) }
+        // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
+        runCatching { sendBroadcast(Intent(ACTION_BAR_STATE).putExtra(EXTRA_VISIBLE, false).putExtra(EXTRA_HEIGHT_DP, 0)) }
         io.execute { runCatching { VehicleClient.unregisterListener(listener) } }
         runCatching { wm.removeView(root) }
     }
@@ -424,6 +435,7 @@ class OverlayService : Service() {
         if (hidden) {
             hidden = false; bar.visibility = View.VISIBLE; handle.visibility = View.GONE
             params.height = barHeightPx; runCatching { wm.updateViewLayout(root, params) }
+            broadcastBarState()
         }
         armTimer()
     }
@@ -433,6 +445,26 @@ class OverlayService : Service() {
         closeVolume()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
+        broadcastBarState()
+    }
+
+    // Avisa apps que reservam o rodapé (haval-radio) qual a altura ocupada agora.
+    private fun broadcastBarState() {
+        runCatching {
+            sendBroadcast(
+                Intent(ACTION_BAR_STATE)
+                    .putExtra(EXTRA_VISIBLE, !hidden)
+                    .putExtra(EXTRA_HEIGHT_DP, if (hidden) HANDLE_DP else BAR_DP)
+            )
+        }
+    }
+
+    private fun registerRequestReceiver() {
+        val filter = IntentFilter(ACTION_REQUEST_STATE)
+        if (Build.VERSION.SDK_INT >= 33)
+            registerReceiver(requestReceiver, filter, Context.RECEIVER_EXPORTED)
+        else
+            @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(requestReceiver, filter)
     }
 
     // ---- utils ----
@@ -494,6 +526,18 @@ class OverlayService : Service() {
 
     companion object {
         private const val NOTIF_ID = 42
+
+        /** Altura da barra (visível) e da alça (oculta), em dp. */
+        const val BAR_DP = 84
+        const val HANDLE_DP = 22
+
+        /** Broadcast do estado da barra p/ outros apps (ex.: haval-radio) reservarem o rodapé. */
+        const val ACTION_BAR_STATE = "br.com.redesurftank.havaldock.BAR_STATE"
+        /** Outro app pode pedir o estado atual; respondemos com ACTION_BAR_STATE. */
+        const val ACTION_REQUEST_STATE = "br.com.redesurftank.havaldock.REQUEST_BAR_STATE"
+        const val EXTRA_VISIBLE = "visible"
+        const val EXTRA_HEIGHT_DP = "height_dp"
+
         fun start(context: Context) {
             val i = Intent(context, OverlayService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(i) else context.startService(i)
