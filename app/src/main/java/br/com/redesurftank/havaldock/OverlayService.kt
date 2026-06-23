@@ -95,11 +95,15 @@ class OverlayService : Service() {
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
         registerRequestReceiver()
         broadcastBarState()
+        // re-lê o snapshot toda vez que a conexão com o veículo (re)estabelece — ex.: o Shizuku/serviço
+        // sobe depois da barra no boot, ou o binder morre e reconecta. Substitui o antigo hack de
+        // refreshAll() com postDelayed, que só mascarava a corrida.
+        VehicleClient.addConnectionListener(onVehicleConnected)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
         refreshAll()
-        main.postDelayed({ refreshAll() }, 1500)
-        main.postDelayed({ refreshAll() }, 4000)
     }
+
+    private val onVehicleConnected: () -> Unit = { refreshAll() }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         applyVisibility(); return START_STICKY
@@ -113,6 +117,7 @@ class OverlayService : Service() {
         runCatching { unregisterReceiver(requestReceiver) }
         // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
         runCatching { sendBroadcast(Intent(ACTION_BAR_STATE).putExtra(EXTRA_VISIBLE, false).putExtra(EXTRA_HEIGHT_DP, 0)) }
+        VehicleClient.removeConnectionListener(onVehicleConnected)
         io.execute { runCatching { VehicleClient.unregisterListener(listener) } }
         runCatching { wm.removeView(root) }
     }
