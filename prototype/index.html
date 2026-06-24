@@ -86,6 +86,16 @@
   .airpop button:hover{color:var(--txt); background:rgba(255,255,255,.05);}
   .airpop button.on{color:var(--accent); background:rgba(var(--glow),.16); box-shadow:0 0 0 1px rgba(var(--glow),.5), 0 0 14px rgba(var(--glow),.25);}
 
+  /* popup de nível (ventilação): números 1..N pra escolher direto */
+  .lvlpop{position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; align-items:center; gap:8px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:12px 14px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .lvlpop.show{display:flex;}
+  .lvlpop button{appearance:none; border:1px solid var(--line2); background:var(--card); color:var(--txt); cursor:pointer;
+                 width:46px; height:46px; border-radius:13px; font-size:20px; font-weight:800; transition:.12s;}
+  .lvlpop button:hover{border-color:var(--accent); color:var(--accent);}
+  .lvlpop button.on{background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); border-color:transparent; box-shadow:0 0 12px rgba(var(--glow),.35);}
+
   /* regeneração: raio verde + barras de nível */
   .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
   .regen .ic{width:24px; height:24px; color:var(--green); display:grid; place-items:center;}
@@ -161,6 +171,7 @@
   </div>
 
   <div class="airpop" id="airpop"></div>
+  <div class="lvlpop" id="lvlpop"></div>
 
   <button class="reveal" id="reveal">&#9650; Haval Dock</button>
 
@@ -248,7 +259,7 @@
   const ITEMS=[
     {sec:0, type:'temp',  label:'Temp. motorista',    val:23.0, min:16, max:32, step:0.5},
     {sec:0, type:'level', icon:'seat',   label:'Ventil. motorista', val:0, max:3},
-    {sec:0, type:'level', icon:'fan',    label:'Veloc. ar-cond.',   val:3, max:7},
+    {sec:0, type:'level', icon:'fan',    label:'Veloc. ar-cond.',   val:3, max:7, min:1, pick:true},
     {sec:0, type:'text',  label:'MAX',  on:false},
     {sec:0, type:'text',  label:'AUTO', on:true},
     {sec:0, type:'text',  label:'SYNC', on:false},
@@ -284,7 +295,7 @@
     if(it.type==='level'){
       const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
       el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
-      el.addEventListener('click',()=>{ it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
+      el.addEventListener('click',()=>{ if(it.pick){ activity(); openLvl(it); return; } it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
       return el;
     }
     if(it.type==='text'){
@@ -372,9 +383,21 @@
   function openAir(it){ airItem=it; drawAir(); airpop.classList.add('show'); }
   airpop.addEventListener('click',e=>e.stopPropagation());
 
+  /* ---- popup de nível (ventilação): escolher 1..N direto ---- */
+  let lvlItem=null;
+  const lvlpop=document.getElementById('lvlpop');
+  function drawLvl(){ lvlpop.innerHTML='';
+    const lo=lvlItem.min||0, hi=lvlItem.max;
+    for(let n=lo;n<=hi;n++){ const b=document.createElement('button'); b.textContent=n; if(n===lvlItem.val) b.className='on';
+      (function(v){ b.addEventListener('click',e=>{ e.stopPropagation(); lvlItem.val=v; lvlpop.classList.remove('show'); activity(); render(); }); })(n);
+      lvlpop.appendChild(b); } }
+  function openLvl(it){ lvlItem=it; drawLvl(); lvlpop.classList.add('show'); }
+  lvlpop.addEventListener('click',e=>e.stopPropagation());
+
   document.getElementById('stage').addEventListener('click',e=>{
     if(volpop.classList.contains('show') && !volpop.contains(e.target)) volpop.classList.remove('show');
-    if(airpop.classList.contains('show') && !airpop.contains(e.target)) airpop.classList.remove('show'); });
+    if(airpop.classList.contains('show') && !airpop.contains(e.target)) airpop.classList.remove('show');
+    if(lvlpop.classList.contains('show') && !lvlpop.contains(e.target)) lvlpop.classList.remove('show'); });
 
   /* ---- Configurações ---- */
   const settings=document.getElementById('settings');

@@ -71,12 +71,16 @@ class Temp(id: String, section: Int, label: String, val key: String,
     }
 }
 
-/** Banco/ventilador: ícone + sublinhado de nível; toque incrementa e dá a volta. */
+/**
+ * Banco/ventilador: ícone + sublinhado de nível. Toque incrementa e dá a volta; quando [picker]=true
+ * o toque abre um popup pra escolher o nível direto (min..max) em vez de ciclar.
+ */
 class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
-           val key: String, val max: Int, val rangeKey: String?, val min: Int = 0) :
+           val key: String, val max: Int, val rangeKey: String?, val min: Int = 0,
+           val picker: Boolean = false) :
     Control(id, section, label) {
-    private fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
-    private fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it))?.toInt() } ?: max
+    fun value() = VehicleClient.getData(key)?.trim()?.toIntOrNull() ?: 0
+    fun hi() = rangeKey?.let { parseMax(VehicleClient.getData(it))?.toInt() } ?: max
     override fun render(): RenderState {
         val m = hi().coerceAtLeast(1)
         return RenderState(ratio = value().coerceIn(0, m).toFloat() / m)
@@ -88,6 +92,8 @@ class Level(id: String, section: Int, label: String, @DrawableRes val icon: Int,
         val next = if (v >= m) min else (v + 1).coerceAtLeast(min)
         VehicleClient.set(key, next.toString())
     }
+    /** Escolha direta de nível (usada pelo popup). */
+    fun setLevel(v: Int) = VehicleClient.set(key, v.coerceIn(min, hi().coerceAtLeast(min)).toString())
 }
 
 /** Volume: ícone + sublinhado; abre popup vertical com −/+ e arraste. */
@@ -247,7 +253,7 @@ object DockControls {
         // ----- ESQUERDA (clima) -----
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventD", 0, "Ventil. motorista", R.drawable.ic_seat, DockKeys.DRIVER_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
-        Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1),
+        Level("fan", 0, "Veloc. ar-cond.", R.drawable.ic_fan, DockKeys.FAN_SPEED, 7, DockKeys.FAN_RANGE, min = 1, picker = true),
         MaxAc("max", 0, "MAX"),
         TxtToggle("auto", 0, "AUTO", DockKeys.AUTO),
         TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),

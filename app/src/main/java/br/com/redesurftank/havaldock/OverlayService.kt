@@ -61,6 +61,7 @@ class OverlayService : Service() {
     private val updaters = HashMap<String, (RenderState) -> Unit>()
     private var volWin: View? = null
     private var airflowWin: View? = null
+    private var levelWin: View? = null
     private var hidden = false
 
     private val barHeightPx by lazy { dp(BAR_DP) }
@@ -117,6 +118,7 @@ class OverlayService : Service() {
         main.removeCallbacks(hideRunnable)
         closeVolume()
         closeAirflow()
+        closeLevel()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
         // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
@@ -243,7 +245,7 @@ class OverlayService : Service() {
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st -> setTrack(track.second, st.ratio) }
-        v.setOnClickListener { act(c) { c.cycle() } }
+        v.setOnClickListener { if (c.picker) { onUserActivity(); openLevel(c) } else act(c) { c.cycle() } }
         return v
     }
 
@@ -367,7 +369,7 @@ class OverlayService : Service() {
 
     private fun openVolume(c: Volume) {
         if (volWin != null) { closeVolume(); return }
-        closeAirflow()
+        closeAirflow(); closeLevel()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(14), dp(14), dp(14), dp(14))
@@ -429,7 +431,7 @@ class OverlayService : Service() {
 
     private fun openAirflow(c: Airflow) {
         if (airflowWin != null) { closeAirflow(); return }
-        closeVolume()
+        closeVolume(); closeLevel()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -466,6 +468,50 @@ class OverlayService : Service() {
     }
 
     private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
+
+    // ---- popup de nível (ventilação): escolher min..max direto ----
+
+    private fun openLevel(c: Level) {
+        if (levelWin != null) { closeLevel(); return }
+        closeVolume(); closeAirflow()
+        io.execute {
+            val lo = c.min
+            val hi = c.hi().coerceAtLeast(lo)
+            val cur = c.value()
+            main.post {
+                val pop = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
+                }
+                for (n in lo..hi) {
+                    val on = n == cur
+                    pop.addView(TextView(this).apply {
+                        text = n.toString(); textSize = 20f; setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
+                        setTextColor(if (on) cOnAccent else cTxt)
+                        background = pill(if (on) cAccent else cCard, dp(13))
+                        isClickable = true
+                        layoutParams = LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginStart = dp(4); marginEnd = dp(4) }
+                        setOnClickListener {
+                            onUserActivity()
+                            io.execute { c.setLevel(n); main.post { closeLevel(); refreshAll() } }
+                        }
+                    })
+                }
+                val lp = WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    PixelFormat.TRANSLUCENT,
+                ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8) }
+                runCatching { wm.addView(pop, lp); levelWin = pop }
+                onUserActivity()
+            }
+        }
+    }
+
+    private fun closeLevel() { levelWin?.let { v -> runCatching { wm.removeView(v) } }; levelWin = null }
 
     // ---- ações / refresh ----
 
@@ -510,6 +556,7 @@ class OverlayService : Service() {
         if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
         closeVolume()
         closeAirflow()
+        closeLevel()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()
