@@ -68,13 +68,23 @@
   .mode .ic svg{width:20px; height:20px;}
   .mode .ml{font-size:14px; font-weight:800; letter-spacing:1.5px;}
 
-  /* fluxo de ar: 5 ícones lado a lado, seleção mutuamente exclusiva */
-  .airsel{display:flex; align-items:center; gap:6px;}
-  .airsel button{appearance:none; border:0; background:transparent; cursor:pointer; padding:5px; border-radius:11px;
+  /* fluxo de ar: na barra mostra SÓ o ícone atual; toque abre o popup */
+  .ibtn .ic.air{width:34px; height:30px;}
+  .ibtn .ic.air svg, .ibtn .ic.air .maskic{width:34px; height:30px;}
+  /* ícone-máscara: usa o PNG real do carro (alpha) tingido pela cor atual */
+  .maskic{display:block; background-color:currentColor; -webkit-mask:center/contain no-repeat; mask:center/contain no-repeat;}
+  .ibtn .ic .maskic{width:100%; height:100%;}
+
+  /* popup do fluxo de ar — linha horizontal de ícones (escolha exclusiva) */
+  .airpop{position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; align-items:center; gap:8px; z-index:8;
+          background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:18px; padding:12px 14px;
+          box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);}
+  .airpop.show{display:flex;}
+  .airpop button{appearance:none; border:0; background:transparent; cursor:pointer; padding:9px; border-radius:13px;
                  display:grid; place-items:center; color:var(--muted); transition:.12s;}
-  .airsel button svg{width:30px; height:26px; display:block;}
-  .airsel button:hover{color:var(--txt);}
-  .airsel button.on{color:var(--accent); background:rgba(var(--glow),.14); box-shadow:0 0 0 1px rgba(var(--glow),.45), 0 0 12px rgba(var(--glow),.22);}
+  .airpop button svg, .airpop button .maskic{width:40px; height:34px; display:block;}
+  .airpop button:hover{color:var(--txt); background:rgba(255,255,255,.05);}
+  .airpop button.on{color:var(--accent); background:rgba(var(--glow),.16); box-shadow:0 0 0 1px rgba(var(--glow),.5), 0 0 14px rgba(var(--glow),.25);}
 
   /* regeneração: raio verde + barras de nível */
   .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
@@ -150,6 +160,8 @@
     <div class="vlabel">Volume</div>
   </div>
 
+  <div class="airpop" id="airpop"></div>
+
   <button class="reveal" id="reveal">&#9650; Haval Dock</button>
 
   <div class="settings" id="settings">
@@ -212,19 +224,25 @@
     car:  svg('<path d="M4 12l2-5a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 7l2 5"/><path d="M3 12h18v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M6 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/><path d="M15 16.5a1.5 1.5 0 1 1 3 0a1.5 1.5 0 1 1-3 0"/>'),
     steer:svg('<path d="M3 12a9 9 0 1 1 18 0a9 9 0 1 1-18 0"/><path d="M9.8 12a2.2 2.2 0 1 1 4.4 0a2.2 2.2 0 1 1-4.4 0"/><path d="M12 14.2V21"/><path d="M10.1 13.1L4.5 16.5"/><path d="M13.9 13.1l5.6 3.4"/>'),
     volume:svg('<path d="M4 9h3l4-3v12l-4-3H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/>'),
-    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L5 13h5l-1 9 9-12h-5l1-8z"/></svg>'
+    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L5 13h5l-1 9 9-12h-5l1-8z"/></svg>',
+    // recirculador — ícones por estado (SVGs do usuário, via máscara).
+    // closed = ativo (recircula, sem ar externo); open = desligado (entra ar externo).
+    recircClosed: '<span class="maskic" style="-webkit-mask-image:url(recirc_closed.svg);mask-image:url(recirc_closed.svg)"></span>',
+    recircOpen: '<span class="maskic" style="-webkit-mask-image:url(recirc_open.svg);mask-image:url(recirc_open.svg)"></span>'
   };
   const MCOL={c:'var(--accent)', g:'var(--green)', r:'var(--red)', w:'var(--txt)'};
   const REGENCOL=['var(--green)','#ffc23c','var(--red)'];   // Baixo=verde, Normal=amarelo, Alto=vermelho
 
-  // fluxo de ar — 5 posições (pessoa + setas de direção / para-brisa)
-  const _P='<circle cx="14.6" cy="6.4" r="2.6"/><path d="M12.1 9.6C12.1 9.6 12.5 9.4 13.1 9.4L16 9.4C16.6 9.4 17 9.8 17 10.4L17 13.2L20.6 13.2C21.1 13.2 21.5 13.6 21.5 14.15C21.5 14.7 21.1 15.1 20.6 15.1L15.2 15.1C13.5 15.1 12.1 13.7 12.1 12Z"/>';
-  const _AF='<path d="M2.6 12.8L7 7.2" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="M8.6 5.4L4.6 6L6.6 9.2Z"/>';
-  const _AFt='<path d="M2.6 8.4L7 14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="M8.6 15.8L4.6 15.2L6.6 12Z"/>';
-  const _W='<path d="M4.4 18C4.4 14.4 8 12.8 12 12.8C16 12.8 19.6 14.4 19.6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11.8V6M6.4 7.6L8 5.6L9.6 7.6"/><path d="M12 11.8V5M10.4 6.6L12 4.6L13.6 6.6"/><path d="M16 11.8V6M14.4 7.6L16 5.6L17.6 7.6"/></g>';
-  const _Wsm='<path d="M2 9.2C2 7.4 3.8 6.4 5.6 6.4C7.4 6.4 9.2 7.4 9.2 9.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.7 5.8V3.2M2.9 4L3.7 3L4.5 4"/><path d="M5.6 5.8V2.8M4.8 3.6L5.6 2.6L6.4 3.6"/><path d="M7.5 5.8V3.2M6.7 4L7.5 3L8.3 4"/></g>';
-  const _air=s=>'<svg viewBox="0 0 24 24" fill="currentColor">'+s+'</svg>';
-  const AIR=[_air(_AF+_P), _air(_AF+_AFt+_P), _air(_AFt+_P), _air(_AFt+_P+_Wsm), _air(_W)];
+  // fluxo de ar — 5 posições. Os 4 primeiros são os PNGs REAIS do HVAC do carro (mesmos do app),
+  // tingidos por máscara CSS. O 5º (pára-brisa) o carro não expõe como ícone próprio -> SVG.
+  const _maskic=f=>'<span class="maskic" style="-webkit-mask-image:url('+f+');mask-image:url('+f+')"></span>';
+  const AIR=[
+    _maskic('ic_hvac_blower_face.png'),
+    _maskic('ic_hvac_blower_feet_and_face.png'),
+    _maskic('ic_hvac_blower_feet.png'),
+    _maskic('ic_hvac_blower_feet_and_defrost.png'),
+    _maskic('ic_hvac_blower_defrost.svg'),
+  ];
 
   // ESQUERDA -> CENTRO -> DIREITA (estilo do app de referência)
   const ITEMS=[
@@ -234,7 +252,7 @@
     {sec:0, type:'text',  label:'MAX',  on:false},
     {sec:0, type:'text',  label:'AUTO', on:true},
     {sec:0, type:'text',  label:'SYNC', on:false},
-    {sec:0, type:'itog',  icon:'recirc', label:'Recirculador', on:false, wide:true},
+    {sec:0, type:'itog',  icon:'recircClosed', iconOff:'recircOpen', label:'Recirculador', on:false, wide:true},
     {sec:0, type:'airsel', label:'Fluxo de ar', idx:0, opts:['Rosto','Rosto + Pés','Pés','Pés + Pára-brisa','Pára-brisa']},
 
     {sec:1, type:'mode',  icon:'car',   label:'Modo condução', opts:[['Normal','c'],['Eco','g'],['Sport','r'],['Neve','c']], idx:2},
@@ -289,13 +307,9 @@
       return el;
     }
     if(it.type==='airsel'){
-      const el=document.createElement('div'); el.className='airsel'; el.title=it.label;
-      AIR.forEach((ic,k)=>{
-        const b=document.createElement('button'); b.innerHTML=ic; b.title=it.opts[k];
-        if(k===it.idx) b.className='on';
-        b.addEventListener('click',()=>{ it.idx=k; activity(); render(); });
-        el.appendChild(b);
-      });
+      const el=document.createElement('div'); el.className='ibtn'; el.title=it.label+' — '+it.opts[it.idx];
+      el.innerHTML='<span class="ic air">'+AIR[it.idx]+'</span>';
+      el.addEventListener('click',e=>{ e.stopPropagation(); activity(); openAir(it); });
       return el;
     }
     if(it.type==='mode'){
@@ -344,8 +358,23 @@
   vtrack.addEventListener('pointermove',e=>{ if(vdrag) volFromY(e.clientY); });
   vtrack.addEventListener('pointerup',()=>vdrag=false);
   volpop.addEventListener('click',e=>e.stopPropagation());
+
+  /* ---- popup de fluxo de ar — linha horizontal de ícones (escolha exclusiva) ---- */
+  let airItem=null;
+  const airpop=document.getElementById('airpop');
+  function drawAir(){ airpop.innerHTML='';
+    AIR.forEach((ic,k)=>{
+      const b=document.createElement('button'); b.innerHTML=ic; b.title=airItem.opts[k];
+      if(k===airItem.idx) b.className='on';
+      b.addEventListener('click',e=>{ e.stopPropagation(); airItem.idx=k; airpop.classList.remove('show'); activity(); render(); });
+      airpop.appendChild(b);
+    }); }
+  function openAir(it){ airItem=it; drawAir(); airpop.classList.add('show'); }
+  airpop.addEventListener('click',e=>e.stopPropagation());
+
   document.getElementById('stage').addEventListener('click',e=>{
-    if(volpop.classList.contains('show') && !volpop.contains(e.target)) volpop.classList.remove('show'); });
+    if(volpop.classList.contains('show') && !volpop.contains(e.target)) volpop.classList.remove('show');
+    if(airpop.classList.contains('show') && !airpop.contains(e.target)) airpop.classList.remove('show'); });
 
   /* ---- Configurações ---- */
   const settings=document.getElementById('settings');
