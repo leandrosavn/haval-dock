@@ -15,6 +15,8 @@ object DockKeys {
     const val AUTO = "car.hvac.auto_enable"
     const val SYNC = "car.hvac.sync_enable"
     const val CYCLE_MODE = "car.hvac.cycle_mode"
+    const val BLOWER_MODE = "car.hvac.blower_mode"
+    const val FRONT_DEFROST = "car.hvac.front_defrost_enable"
     const val POWER_MODE = "car.hvac.power_mode"
     const val AC_ENABLE = "car.hvac.ac_enable"
     const val DRIVER_SEAT_VENT = "car.comfort_setting.driver_seat_ventilation_level"
@@ -48,6 +50,7 @@ data class RenderState(
     val on: Boolean = false,
     val color: Int = DockColors.CYAN,
     val bars: Int = 0,
+    @DrawableRes val icon: Int = 0,
 )
 
 sealed class Control(val id: String, val section: Int, val label: String) {
@@ -97,6 +100,41 @@ class Volume(id: String, section: Int, label: String, @DrawableRes val icon: Int
     fun set(v: Int) = VehicleClient.set(key, v.coerceIn(0, hi()).toString())
 }
 
+/**
+ * Uma opção de fluxo de ar: ícone + o que escrever. Quase todas escrevem `blower_mode` (0..3);
+ * o desembaçador dianteiro (`defrost=true`) é uma propriedade SEPARADA (`front_defrost_enable` 0/1).
+ */
+data class AirflowOption(val value: String, val label: String, @DrawableRes val icon: Int,
+                        val defrost: Boolean = false)
+
+/**
+ * Fluxo de ar: o dock mostra o ícone do modo ATUAL; o toque abre um popup com os modos e o
+ * escolhido vira o visível. Mistura duas propriedades — direção do ar (`blower_mode`: 0=Rosto,
+ * 1=Rosto/Pés, 2=Pés, 3=Vidro/Pés, do Impulse/HAVAL_6984) e o desembaçador dianteiro
+ * (`front_defrost_enable` 0/1). Seleção é exclusiva: escolher uma direção desliga o desembaçador;
+ * escolher o desembaçador o liga. ⚠️ valores e a escrita do defrost: confirmar AO VIVO neste carro.
+ */
+class Airflow(id: String, section: Int, label: String, val key: String, val defrostKey: String,
+             val options: List<AirflowOption>) : Control(id, section, label) {
+    private fun blower(): String? = VehicleClient.getData(key)?.trim()
+    private fun defrostOn(): Boolean = VehicleClient.getData(defrostKey)?.trim() == "1"
+    /** Opção atualmente ativa: se o desembaçador está ligado, ele vence; senão, o blower_mode. */
+    fun currentOption(): AirflowOption {
+        if (defrostOn()) return options.firstOrNull { it.defrost } ?: options.first()
+        val b = blower()
+        return options.firstOrNull { !it.defrost && it.value == b } ?: options.first()
+    }
+    override fun render() = RenderState(icon = currentOption().icon)
+    fun select(opt: AirflowOption) {
+        if (opt.defrost) {
+            VehicleClient.set(defrostKey, "1")
+        } else {
+            VehicleClient.set(defrostKey, "0")
+            VehicleClient.set(key, opt.value)
+        }
+    }
+}
+
 /** Toggle de texto (MAX / AUTO / SYNC): on em ciano + sublinhado. */
 class TxtToggle(id: String, section: Int, label: String, val key: String) :
     Control(id, section, label) {
@@ -105,12 +143,12 @@ class TxtToggle(id: String, section: Int, label: String, val key: String) :
     fun flip() = VehicleClient.set(key, if (isOn()) "0" else "1")
 }
 
-/** Toggle de ícone (recirculador): cycle_mode 1=recirc, 0=externo. */
-class IconToggle(id: String, section: Int, label: String, @DrawableRes val icon: Int,
-                val key: String, val onV: String, val offV: String) :
+/** Toggle de ícone (recirculador): troca o ícone por estado. Neste carro cycle_mode 0=recirc, 1=externo. */
+class IconToggle(id: String, section: Int, label: String, @DrawableRes val iconOn: Int,
+                @DrawableRes val iconOff: Int, val key: String, val onV: String, val offV: String) :
     Control(id, section, label) {
     fun isOn() = VehicleClient.getData(key)?.trim() == onV
-    override fun render() = RenderState(on = isOn())
+    override fun render() = RenderState(on = isOn(), icon = if (isOn()) iconOn else iconOff)
     fun flip() = VehicleClient.set(key, if (isOn()) offV else onV)
 }
 
@@ -196,6 +234,15 @@ class MaxAc(id: String, section: Int, label: String) : Control(id, section, labe
 }
 
 object DockControls {
+    /** Modos de fluxo de ar, na ordem em que aparecem no popup (o último é o desembaçador). */
+    val AIRFLOW_OPTIONS = listOf(
+        AirflowOption("0", "Rosto", R.drawable.ic_hvac_blower_face),
+        AirflowOption("1", "Rosto/Pés", R.drawable.ic_hvac_blower_feet_and_face),
+        AirflowOption("2", "Pés", R.drawable.ic_hvac_blower_feet),
+        AirflowOption("3", "Vidro/Pés", R.drawable.ic_hvac_blower_feet_and_defrost),
+        AirflowOption("1", "Desembaçador", R.drawable.ic_hvac_blower_defrost, defrost = true),
+    )
+
     val ALL: List<Control> = listOf(
         // ----- ESQUERDA (clima) -----
         Temp("tempD", 0, "Temp. motorista", DockKeys.DRIVER_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
@@ -204,7 +251,8 @@ object DockControls {
         MaxAc("max", 0, "MAX"),
         TxtToggle("auto", 0, "AUTO", DockKeys.AUTO),
         TxtToggle("sync", 0, "SYNC", DockKeys.SYNC),
-        IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc, DockKeys.CYCLE_MODE, "0", "1"),
+        IconToggle("recirc", 0, "Recirculador", R.drawable.ic_recirc_closed, R.drawable.ic_recirc_open, DockKeys.CYCLE_MODE, "0", "1"),
+        Airflow("airflow", 0, "Fluxo de ar", DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST, AIRFLOW_OPTIONS),
         // ----- CENTRO (condução) -----
         Mode("drive", 1, "Modo condução", R.drawable.ic_car, DockKeys.DRIVE_MODE,
             listOf(0, 2, 1),
@@ -224,6 +272,7 @@ object DockControls {
     val MONITORED: List<String> = listOf(
         DockKeys.DRIVER_TEMP, DockKeys.PASS_TEMP, DockKeys.FAN_SPEED, DockKeys.DRIVER_SEAT_VENT,
         DockKeys.PASS_SEAT_VENT, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
+        DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST,
         DockKeys.DRIVE_MODE, DockKeys.STEER_MODE, DockKeys.REGEN_LEVEL, DockKeys.MEDIA_VOLUME,
     )
 }

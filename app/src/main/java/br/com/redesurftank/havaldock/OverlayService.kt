@@ -25,6 +25,8 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import br.com.redesurftank.havaldock.data.Airflow
+import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockControls
 import br.com.redesurftank.havaldock.data.IconToggle
@@ -58,6 +60,7 @@ class OverlayService : Service() {
 
     private val updaters = HashMap<String, (RenderState) -> Unit>()
     private var volWin: View? = null
+    private var airflowWin: View? = null
     private var hidden = false
 
     private val barHeightPx by lazy { dp(BAR_DP) }
@@ -113,6 +116,7 @@ class OverlayService : Service() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable)
         closeVolume()
+        closeAirflow()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
         // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
@@ -201,6 +205,7 @@ class OverlayService : Service() {
         is IconToggle -> tileIconToggle(c)
         is Mode -> tileMode(c)
         is Regen -> tileRegen(c)
+        is Airflow -> tileAirflow(c)
     }
 
     private fun gap(v: View, start: Int) { (v.layoutParams as LinearLayout.LayoutParams).marginStart = dp(start) }
@@ -278,15 +283,28 @@ class OverlayService : Service() {
 
     private fun tileIconToggle(c: IconToggle): View {
         val v = col(); v.isClickable = true
-        val ic = icon(c.icon, cTxt, 46)   // recirc maior
+        val ic = icon(c.iconOff, cTxt, 46)   // recirc maior; ícone trocado por estado
         v.addView(ic)
         val track = makeTrack()
         v.addView(track.first)
         updaters[c.id] = { st ->
+            if (st.icon != 0) ic.setImageResource(st.icon)
             ic.setColorFilter(if (st.on) cAccent else cTxt)
             setTrack(track.second, if (st.on) 1f else 0f)
         }
         v.setOnClickListener { act(c) { c.flip() } }
+        return v
+    }
+
+    private fun tileAirflow(c: Airflow): View {
+        val v = col(); v.isClickable = true
+        val ic = icon(c.options.first().icon, cTxt, 34)
+        v.addView(ic)
+        updaters[c.id] = { st ->
+            if (st.icon != 0) ic.setImageResource(st.icon)
+            ic.setColorFilter(cTxt)
+        }
+        v.setOnClickListener { onUserActivity(); openAirflow(c) }
         return v
     }
 
@@ -349,6 +367,7 @@ class OverlayService : Service() {
 
     private fun openVolume(c: Volume) {
         if (volWin != null) { closeVolume(); return }
+        closeAirflow()
         val pop = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = pill(cBarBg, dp(18)); setPadding(dp(14), dp(14), dp(14), dp(14))
@@ -406,6 +425,48 @@ class OverlayService : Service() {
 
     private fun closeVolume() { volWin?.let { v -> runCatching { wm.removeView(v) } }; volWin = null }
 
+    // ---- popup de fluxo de ar (linha horizontal de ícones) ----
+
+    private fun openAirflow(c: Airflow) {
+        if (airflowWin != null) { closeAirflow(); return }
+        closeVolume()
+        val pop = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = pill(cBarBg, dp(18)); setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        val ivs = ArrayList<Pair<AirflowOption, ImageView>>()
+        c.options.forEach { opt ->
+            val iv = ImageView(this).apply {
+                setImageResource(opt.icon); setColorFilter(cTxt); isClickable = true
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginStart = dp(4); marginEnd = dp(4) }
+                setOnClickListener {
+                    onUserActivity()
+                    io.execute { c.select(opt); main.post { closeAirflow(); refreshAll() } }
+                }
+            }
+            ivs.add(opt to iv); pop.addView(iv)
+        }
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8) }
+        runCatching { wm.addView(pop, lp); airflowWin = pop }
+        // destaca o modo atual em ciano (IPC fora da main thread)
+        io.execute {
+            val cur = c.currentOption()
+            main.post { ivs.forEach { (o, iv) -> iv.setColorFilter(if (o == cur) cAccent else cTxt) } }
+        }
+        onUserActivity()
+    }
+
+    private fun closeAirflow() { airflowWin?.let { v -> runCatching { wm.removeView(v) } }; airflowWin = null }
+
     // ---- ações / refresh ----
 
     private fun act(c: Control, action: () -> Unit) {
@@ -448,6 +509,7 @@ class OverlayService : Service() {
         // gesto (manual) esconde em qualquer modo; o timer só esconde no modo auto
         if (!manual && SettingsStore.mode(this) != SettingsStore.MODE_AUTO) return
         closeVolume()
+        closeAirflow()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()
