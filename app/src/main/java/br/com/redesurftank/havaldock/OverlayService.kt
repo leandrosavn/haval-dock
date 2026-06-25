@@ -29,6 +29,7 @@ import br.com.redesurftank.havaldock.data.Airflow
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockControls
+import br.com.redesurftank.havaldock.data.HvacPanel
 import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Level
 import br.com.redesurftank.havaldock.data.MaxAc
@@ -104,6 +105,7 @@ class OverlayService : Service() {
         // refreshAll() com postDelayed, que só mascarava a corrida.
         VehicleClient.addConnectionListener(onVehicleConnected)
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
+        HvacPanel.ensureEnabled()   // rede de segurança: garante o painel do ar habilitado
         refreshAll()
     }
 

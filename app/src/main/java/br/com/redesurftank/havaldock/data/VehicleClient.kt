@@ -110,9 +110,13 @@ object VehicleClient {
 
     /** Escreve uma propriedade (ação de set padrão do SDK). */
     fun set(key: String, value: String) {
+        // chaves de HVAC abririam o painel do ar (com.beantechs.hvac) -> suprime em volta da escrita
+        val hvac = HvacPanel.isHvacKey(key)
+        if (hvac) HvacPanel.beforeWrite()
         runCatching {
             if (ensureConnected()) service?.request(ACTION_SET, key, value)
         }.onFailure { Log.e(TAG, "set $key=$value", it) }
+        if (hvac) HvacPanel.afterWrite()
     }
 
     fun registerListener(keys: List<String>, listener: IListener) {
