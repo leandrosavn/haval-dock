@@ -295,7 +295,7 @@
     if(it.type==='level'){
       const el=document.createElement('div'); el.className='ibtn'; el.title=it.label;
       el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span><div class="lvl"><i style="width:'+(it.val/it.max*100)+'%"></i></div>';
-      el.addEventListener('click',()=>{ if(it.pick){ activity(); openLvl(it); return; } it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
+      el.addEventListener('click',e=>{ if(it.pick){ e.stopPropagation(); activity(); openLvl(it); return; } it.val=it.val>=it.max?0:it.val+Math.max(1,Math.round(it.max/ (it.max>10?15:it.max))); if(it.val>it.max)it.val=it.max; activity(); render();});
       return el;
     }
     if(it.type==='text'){
