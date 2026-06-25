@@ -9,7 +9,10 @@ http.createServer((req, res) => {
   const file = path.join(root, p);
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); res.end('not found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+      'Cache-Control': 'no-store',   // protótipo: sempre servir a versão fresca (evita aba em cache)
+    });
     res.end(data);
   });
 }).listen(port, () => console.log('Protótipo Haval Dock em http://localhost:' + port));
