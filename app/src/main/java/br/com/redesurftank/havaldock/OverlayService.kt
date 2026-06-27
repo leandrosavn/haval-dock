@@ -34,6 +34,7 @@ import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Level
 import br.com.redesurftank.havaldock.data.MaxAc
 import br.com.redesurftank.havaldock.data.Mode
+import br.com.redesurftank.havaldock.data.ProjectionLauncher
 import br.com.redesurftank.havaldock.data.Regen
 import br.com.redesurftank.havaldock.data.RenderState
 import br.com.redesurftank.havaldock.data.SettingsStore
@@ -64,6 +65,15 @@ class OverlayService : Service() {
     private var airflowWin: View? = null
     private var levelWin: View? = null
     private var hidden = false
+
+    // atalho de projeção (CarPlay/AA): tile que aparece sozinho quando há projeção conectada
+    private var projView: View? = null
+    private var projIcon: ImageView? = null
+    private var projFill: View? = null
+    private var projIconPkg: String? = null     // pacote cujo ícone já está carregado
+    private var projConnected: String? = null   // projeção conectada agora (ou null)
+    private var projForeground = false          // projeção está em foco no Display 0
+    private var projPrevApp: String? = null      // app a voltar ao sair da projeção
 
     private val barHeightPx by lazy { dp(BAR_DP) }
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -107,6 +117,7 @@ class OverlayService : Service() {
         io.execute { runCatching { VehicleClient.registerListener(DockControls.MONITORED, listener) } }
         HvacPanel.ensureEnabled()   // rede de segurança: garante o painel do ar habilitado
         refreshAll()
+        main.postDelayed(projPoll, 1200)   // detecção da projeção (CarPlay/AA)
     }
 
     private val onVehicleConnected: () -> Unit = { refreshAll() }
@@ -118,6 +129,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable)
+        main.removeCallbacks(projPoll)
         closeVolume()
         closeAirflow()
         closeLevel()
@@ -181,6 +193,7 @@ class OverlayService : Service() {
     private fun buildSections(content: LinearLayout) {
         val secs = arrayOf(rowSection(), rowSection(), rowSection())
         for (c in DockControls.ALL) secs[c.section].addView(tile(c))
+        secs[0].addView(projTile())   // atalho da projeção: último do grupo do motorista (após o fluxo de ar)
         content.addView(secs[0])
         content.addView(fixedSpacer(90))   // gap fixo: grupo do meio fica perto do motorista
         content.addView(secs[1])
@@ -530,6 +543,64 @@ class OverlayService : Service() {
         io.execute {
             val snap = DockControls.ALL.map { it.id to it.render() }
             main.post { snap.forEach { (id, st) -> updaters[id]?.invoke(st) } }
+        }
+    }
+
+    // ---- atalho de projeção (CarPlay/Android Auto) ----
+
+    private fun projTile(): View {
+        val v = col(); v.isClickable = true
+        val ic = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)) }
+        v.addView(ic)
+        val track = makeTrack()
+        v.addView(track.first)
+        v.visibility = View.GONE   // só aparece quando há projeção conectada
+        v.setOnClickListener { onProjClick() }
+        projView = v; projIcon = ic; projFill = track.second
+        return v
+    }
+
+    // poll periódico: descobre se há projeção conectada e se está em foco no Display 0
+    private val projPoll = object : Runnable {
+        override fun run() {
+            io.execute {
+                val st = ProjectionLauncher.probe()
+                main.post { updateProjTile(st.connected, st.foreground) }
+            }
+            main.postDelayed(this, 3000)
+        }
+    }
+
+    private fun updateProjTile(conn: String?, fg: Boolean) {
+        projConnected = conn
+        projForeground = fg
+        val v = projView ?: return
+        val ic = projIcon ?: return
+        if (conn == null) { if (v.visibility != View.GONE) v.visibility = View.GONE; return }
+        if (v.visibility != View.VISIBLE) v.visibility = View.VISIBLE
+        if (projIconPkg != conn) {   // carrega o ícone REAL do app (PackageManager)
+            runCatching { ic.setImageDrawable(packageManager.getApplicationIcon(conn)); ic.clearColorFilter() }
+            projIconPkg = conn
+        }
+        ic.alpha = if (fg) 1f else 0.9f
+        projFill?.let { setTrack(it, if (fg) 1f else 0f) }   // sublinhado ciano cheio quando em foco
+    }
+
+    private fun onProjClick() {
+        onUserActivity()
+        val conn = projConnected ?: return
+        val goingBack = projForeground
+        io.execute {
+            if (goingBack) {
+                val prev = projPrevApp
+                if (prev != null && prev != conn) ProjectionLauncher.openApp(prev) else ProjectionLauncher.goHome()
+            } else {
+                projPrevApp = ProjectionLauncher.currentTopOnDisplay0()?.takeIf { it != conn }
+                ProjectionLauncher.open(conn)
+            }
+            Thread.sleep(500)
+            val st = ProjectionLauncher.probe()
+            main.post { updateProjTile(st.connected, st.foreground) }
         }
     }
 
