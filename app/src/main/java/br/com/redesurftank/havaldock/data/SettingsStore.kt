@@ -18,6 +18,7 @@ object SettingsStore {
     const val KEY_MODE = "visibility_mode"
     const val KEY_SECS = "auto_hide_secs"
     const val KEY_BOOT = "launch_on_boot"
+    const val KEY_OVERSCAN_PX = "overscan_test_px"
 
     const val MODE_ALWAYS = "always"
     const val MODE_AUTO = "auto"
@@ -25,12 +26,19 @@ object SettingsStore {
     const val MIN_SECS = 3
     const val MAX_SECS = 30
 
+    // Teste de overscan (faixa inferior reservada, em px) — só p/ experimentar com CarPlay/AA.
+    const val DEFAULT_OVERSCAN_PX = 150
+    const val MIN_OVERSCAN_PX = 0
+    const val MAX_OVERSCAN_PX = 400
+    const val STEP_OVERSCAN_PX = 25
+
     private lateinit var appCtx: Context
 
     val overlayEnabled = mutableStateOf(false)
     val visibilityMode = mutableStateOf(MODE_AUTO)
     val autoHideSecs = mutableIntStateOf(DEFAULT_SECS)
     val launchOnBoot = mutableStateOf(true)
+    val overscanPx = mutableIntStateOf(DEFAULT_OVERSCAN_PX)
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -39,6 +47,7 @@ object SettingsStore {
         visibilityMode.value = p.getString(KEY_MODE, MODE_AUTO) ?: MODE_AUTO
         autoHideSecs.intValue = p.getInt(KEY_SECS, DEFAULT_SECS)
         launchOnBoot.value = p.getBoolean(KEY_BOOT, true)
+        overscanPx.intValue = p.getInt(KEY_OVERSCAN_PX, DEFAULT_OVERSCAN_PX)
     }
 
     fun setOverlayEnabled(v: Boolean) {
@@ -60,6 +69,12 @@ object SettingsStore {
     fun setLaunchOnBoot(v: Boolean) {
         launchOnBoot.value = v
         prefs(appCtx).edit().putBoolean(KEY_BOOT, v).apply()
+    }
+
+    fun setOverscanPx(v: Int) {
+        val c = v.coerceIn(MIN_OVERSCAN_PX, MAX_OVERSCAN_PX)
+        overscanPx.intValue = c
+        prefs(appCtx).edit().putInt(KEY_OVERSCAN_PX, c).apply()
     }
 
     fun isLaunchOnBoot(context: Context): Boolean =

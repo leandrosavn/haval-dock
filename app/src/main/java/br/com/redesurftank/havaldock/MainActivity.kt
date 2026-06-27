@@ -43,11 +43,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.redesurftank.havaldock.data.OverscanTest
 import br.com.redesurftank.havaldock.data.SettingsStore
 import br.com.redesurftank.havaldock.data.VehicleClient
 import br.com.redesurftank.havaldock.update.UpdateManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import rikka.shizuku.Shizuku
 
 private val Accent = Color(0xFF19E3B1)
@@ -89,6 +94,11 @@ class MainActivity : ComponentActivity() {
         val mode by SettingsStore.visibilityMode
         val secs by SettingsStore.autoHideSecs
         val boot by SettingsStore.launchOnBoot
+        val overscanPx by SettingsStore.overscanPx
+
+        val scope = rememberCoroutineScope()
+        var overscanApplied by remember { mutableStateOf(false) }
+        var overscanResult by remember { mutableStateOf<String?>(null) }
 
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -143,6 +153,49 @@ class MainActivity : ComponentActivity() {
             SectionCard("Inicialização") {
                 RowSwitch("Religar ao ligar o carro", "Mostra a barra automaticamente no boot.", boot) {
                     SettingsStore.setLaunchOnBoot(it)
+                }
+            }
+
+            // ---- teste de overscan (CarPlay/AA) ----
+            SectionCard("Teste de overscan (CarPlay/AA)") {
+                Text(
+                    "Reserva uma faixa inferior no Display 0 via Shizuku (wm overscan). " +
+                        "Abra o CarPlay/Android Auto e veja se o vídeo sobe (encolhe) ou fica com " +
+                        "faixa preta / corte. Reinicia ao desligar o carro.",
+                    color = Muted, fontSize = 13.sp
+                )
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Altura reservada", color = Color.White, fontSize = 16.sp)
+                        Text("Faixa de baixo, em pixels.", color = Muted, fontSize = 13.sp)
+                    }
+                    Stepper("$overscanPx px") { d ->
+                        SettingsStore.setOverscanPx(overscanPx + d * SettingsStore.STEP_OVERSCAN_PX)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                RowSwitch(
+                    "Aplicar overscan",
+                    if (shizukuReady) "Liga: roda wm overscan. Desliga: wm overscan reset."
+                    else "Requer Shizuku ativo.",
+                    overscanApplied
+                ) { on ->
+                    if (!shizukuReady) return@RowSwitch
+                    overscanApplied = on
+                    overscanResult = "…"
+                    scope.launch {
+                        val out = withContext(Dispatchers.IO) {
+                            if (on) OverscanTest.apply(overscanPx) else OverscanTest.reset()
+                        }
+                        overscanResult = if (out.isNullOrBlank())
+                            (if (on) "Aplicado ($overscanPx px). Sem saída." else "Resetado. Sem saída.")
+                        else out
+                    }
+                }
+                overscanResult?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Text(it, color = AccentSoft, fontSize = 13.sp)
                 }
             }
 
