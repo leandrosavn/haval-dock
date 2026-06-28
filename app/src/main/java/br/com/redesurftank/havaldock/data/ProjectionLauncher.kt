@@ -69,44 +69,14 @@ object ProjectionLauncher {
         ShizukuShell.exec("am", "start", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.HOME")
     }
 
-    // ---- resize do CarPlay (encolher p/ a barra do dock) ----
-    // Só encolhe DE FATO se o CarPlay patcheado (SurfaceView match_parent) estiver montado pelo
-    // Impulse. Sem o patch, o vídeo é fixo (1896x700) e o resize da janela não muda nada.
+    // ---- diagnóstico do patch do CarPlay ----
+    // (O resize ao vivo pelo dock foi removido: encolher a janela com a sessão ativa recria a
+    //  Surface no meio do callback e dá tela branca. O fix correto é no patch do CarPlay, que
+    //  dimensiona a Surface no init — não no dock.)
 
-    private const val DISPLAY_W = 1920
-    private const val DISPLAY_H = 720
     private const val CARPLAY_SYSTEM_APK = "/system/app/TsCarPlayApp/TsCarPlayApp.apk"
     /** md5 do APK patcheado v13 (se bater, o patch está montado). */
     const val CARPLAY_PATCH_MD5 = "9d48c33f49dbeeb020c2fdc7e16bbc53"
-
-    private val stackHeaderRe = Regex("""Stack id=(\d+).*displayId=(\d+)""")
-
-    /** stackId da tarefa do CarPlay no Display 0 (ou null). */
-    private fun carPlayStackIdOnDisplay0(): Int? {
-        val out = stackList() ?: return null
-        var stackId: Int? = null
-        var disp: Int? = null
-        for (line in out.lines()) {
-            stackHeaderRe.find(line)?.let {
-                stackId = it.groupValues[1].toIntOrNull(); disp = it.groupValues[2].toIntOrNull()
-            }
-            if (disp == 0 && line.contains(CARPLAY_PKG)) return stackId
-        }
-        return null
-    }
-
-    /** Encolhe a janela do CarPlay deixando [barPx] livres embaixo (p/ a barra). */
-    fun shrinkCarPlay(barPx: Int) {
-        val id = carPlayStackIdOnDisplay0() ?: return
-        val h = (DISPLAY_H - barPx).coerceAtLeast(1)
-        ShizukuShell.exec("am", "stack", "resize", id.toString(), "0", "0", DISPLAY_W.toString(), h.toString())
-    }
-
-    /** Restaura o CarPlay em tela cheia. */
-    fun restoreCarPlay() {
-        val id = carPlayStackIdOnDisplay0() ?: return
-        ShizukuShell.exec("am", "stack", "resize", id.toString(), "0", "0", DISPLAY_W.toString(), DISPLAY_H.toString())
-    }
 
     /** md5 do APK do CarPlay no sistema (p/ diagnóstico do patch). */
     fun carPlayApkMd5(): String? =
