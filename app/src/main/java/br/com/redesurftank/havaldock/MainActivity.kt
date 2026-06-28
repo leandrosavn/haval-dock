@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.redesurftank.havaldock.data.OverscanTest
+import br.com.redesurftank.havaldock.data.ProjectionLauncher
 import br.com.redesurftank.havaldock.data.SettingsStore
 import br.com.redesurftank.havaldock.data.VehicleClient
 import br.com.redesurftank.havaldock.update.UpdateManager
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         var overscanApplied by remember { mutableStateOf(false) }
         var overscanResult by remember { mutableStateOf<String?>(null) }
+        var carplayDiag by remember { mutableStateOf<String?>(null) }
 
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -196,6 +198,36 @@ class MainActivity : ComponentActivity() {
                 overscanResult?.let {
                     Spacer(Modifier.height(10.dp))
                     Text(it, color = AccentSoft, fontSize = 13.sp)
+                }
+            }
+
+            // ---- diagnóstico do patch do CarPlay ----
+            SectionCard("Diagnóstico CarPlay") {
+                Text(
+                    "Confirma se o patch do CarPlay (Impulse) está montado — é o que deixa o vídeo " +
+                        "encolher pra barra. Sem ele, o resize não tem efeito.",
+                    color = Muted, fontSize = 13.sp
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        carplayDiag?.let { Text(it, color = AccentSoft, fontSize = 13.sp) }
+                            ?: Text("Toque em Verificar.", color = Muted, fontSize = 13.sp)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            carplayDiag = "…"
+                            scope.launch {
+                                val md5 = withContext(Dispatchers.IO) { ProjectionLauncher.carPlayApkMd5() }
+                                carplayDiag = when (md5) {
+                                    null -> "Sem leitura (Shizuku ativo?)."
+                                    ProjectionLauncher.CARPLAY_PATCH_MD5 -> "Patch montado ✓"
+                                    else -> "CarPlay STOCK ✗ ($md5)"
+                                }
+                            }
+                        },
+                        enabled = shizukuReady
+                    ) { Text("Verificar") }
                 }
             }
 
