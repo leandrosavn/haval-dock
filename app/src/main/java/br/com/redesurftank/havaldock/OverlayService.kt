@@ -72,6 +72,7 @@ class OverlayService : Service() {
     private var projConnected: String? = null   // pacote da projeção conectada (ou null)
     private var projForeground = false          // projeção está em foco no Display 0
     private var projShownState: String? = null  // estado do ícone atual ("car" ou o pacote)
+    private var lastProjection: String? = null  // última projeção vista em foco (p/ mostrar o logo certo na central)
 
     private val barHeightPx by lazy { dp(BAR_DP) }
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -558,12 +559,25 @@ class OverlayService : Service() {
 
     // poll periódico: conexão + foco da projeção
     private val projPoll = object : Runnable {
-        override fun run() {
-            io.execute {
-                val st = ProjectionLauncher.probe()
-                main.post { updateProjTile(st.connected, st.foreground) }
+        override fun run() { refreshProjection(); main.postDelayed(this, 2500) }
+    }
+
+    // resolve qual projeção mostrar/abrir: foco no D0 (like-matching) tem prioridade; senão a
+    // última vista em foco; senão CarPlay se estiver conectado (processo rodando).
+    private fun refreshProjection() {
+        io.execute {
+            val fg = ProjectionLauncher.foregroundProjection()
+            val conn: String?
+            val isFg: Boolean
+            if (fg != null) {
+                conn = fg; isFg = true; lastProjection = fg
+            } else {
+                isFg = false
+                conn = lastProjection
+                    ?: (if (ProjectionLauncher.carPlayConnected()) ProjectionLauncher.CARPLAY_PKG else null)
+                if (conn != null) lastProjection = conn
             }
-            main.postDelayed(this, 2500)
+            main.post { updateProjTile(conn, isFg) }
         }
     }
 
@@ -596,9 +610,8 @@ class OverlayService : Service() {
         val goingBack = projForeground
         io.execute {
             if (goingBack) ProjectionLauncher.goHome() else ProjectionLauncher.openProjection(conn)
-            Thread.sleep(500)
-            val st = ProjectionLauncher.probe()
-            main.post { updateProjTile(st.connected, st.foreground) }
+            Thread.sleep(600)
+            refreshProjection()
         }
     }
 

@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
 
         val scope = rememberCoroutineScope()
         var carplayDiag by remember { mutableStateOf<String?>(null) }
+        var projDetect by remember { mutableStateOf<String?>(null) }
 
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -181,6 +182,23 @@ class MainActivity : ComponentActivity() {
                         },
                         enabled = shizukuReady
                     ) { Text("Verificar") }
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Detecção da projeção", color = Color.White, fontSize = 15.sp)
+                        projDetect?.let { Text(it, color = AccentSoft, fontSize = 12.sp) }
+                            ?: Text("Mostra o que o dock detectou (topo do Display 0).", color = Muted, fontSize = 12.sp)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            projDetect = "…"
+                            scope.launch {
+                                projDetect = withContext(Dispatchers.IO) { ProjectionLauncher.detectDebug() }
+                            }
+                        },
+                        enabled = shizukuReady
+                    ) { Text("Detectar") }
                 }
             }
 
