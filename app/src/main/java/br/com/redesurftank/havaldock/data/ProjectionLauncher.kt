@@ -45,7 +45,10 @@ object ProjectionLauncher {
     }
 
     /** Projeção EM FOCO no Display 0 agora (pacote canônico) ou null. */
-    fun foregroundProjection(): String? = classify(topOnDisplay0(stackList() ?: return null))
+    fun foregroundProjection(): String? {
+        val out = stackList() ?: return null
+        return classify(topOnDisplay0(out))
+    }
 
     /** CarPlay conectado (processo rodando), mesmo em background. */
     fun carPlayConnected(): Boolean = !ShizukuShell.exec("pidof", CARPLAY_PKG).isNullOrBlank()
