@@ -130,6 +130,7 @@ class OverlayService : Service() {
         super.onDestroy()
         main.removeCallbacks(hideRunnable)
         main.removeCallbacks(projPoll)
+        if (carPlayResized) io.execute { runCatching { ProjectionLauncher.restoreCarPlay() } }
         closeVolume()
         closeAirflow()
         closeLevel()
@@ -574,6 +575,7 @@ class OverlayService : Service() {
     private fun updateProjTile(conn: String?, fg: Boolean) {
         projConnected = conn
         projForeground = fg
+        applyCarPlayResize()
         val v = projView ?: return
         val ic = projIcon ?: return
         if (conn == null) { if (v.visibility != View.GONE) v.visibility = View.GONE; return }
@@ -584,6 +586,22 @@ class OverlayService : Service() {
         }
         ic.alpha = if (fg) 1f else 0.9f
         projFill?.let { setTrack(it, if (fg) 1f else 0f) }   // sublinhado ciano cheio quando em foco
+    }
+
+    // encolhe o CarPlay (deixa a faixa da barra livre) quando a barra está visível sobre ele;
+    // restaura fullscreen quando a barra some ou o CarPlay sai de foco. Re-aplica no poll (3s)
+    // p/ vencer eventuais re-pins do Impulse. Só tem efeito visual se o patch do CarPlay (Impulse)
+    // estiver montado (SurfaceView match_parent segue a janela).
+    private var carPlayResized = false
+    private fun applyCarPlayResize() {
+        val shouldShrink = !hidden && projForeground && projConnected == ProjectionLauncher.CARPLAY_PKG
+        io.execute {
+            if (shouldShrink) {
+                ProjectionLauncher.shrinkCarPlay(barHeightPx); carPlayResized = true
+            } else if (carPlayResized) {
+                ProjectionLauncher.restoreCarPlay(); carPlayResized = false
+            }
+        }
     }
 
     private fun onProjClick() {
@@ -621,6 +639,7 @@ class OverlayService : Service() {
             hidden = false; bar.visibility = View.VISIBLE; handle.visibility = View.GONE
             params.height = barHeightPx; runCatching { wm.updateViewLayout(root, params) }
             broadcastBarState()
+            applyCarPlayResize()   // barra apareceu -> encolhe o CarPlay (se em foco)
         }
         armTimer()
     }
@@ -633,6 +652,7 @@ class OverlayService : Service() {
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()
+        applyCarPlayResize()   // barra sumiu -> restaura o CarPlay em fullscreen
     }
 
     // Avisa apps que reservam o rodapé (haval-radio) qual a altura ocupada agora.
