@@ -594,11 +594,12 @@ class OverlayService : Service() {
         if (v.visibility != View.VISIBLE) v.visibility = View.VISIBLE
         val want = if (fg) "car" else conn   // na projeção = carro; fora = marca
         if (projShownState != want) {
-            if (fg) {
-                ic.setImageResource(R.drawable.ic_car); ic.setColorFilter(cTxt)
-            } else {
-                // ícone REAL do app de projeção (símbolo correto CarPlay/AA)
-                runCatching { ic.setImageDrawable(packageManager.getApplicationIcon(conn)); ic.clearColorFilter() }
+            when {
+                fg -> { ic.setImageResource(R.drawable.ic_car); ic.setColorFilter(cTxt) }
+                // ícones embutidos (símbolo correto) — não dependem do getApplicationIcon, que
+                // vinha como ícone padrão do Android pro pacote de projeção
+                conn == ProjectionLauncher.AA_PKG -> { ic.setImageResource(R.drawable.ic_androidauto); ic.clearColorFilter() }
+                else -> { ic.setImageResource(R.drawable.ic_carplay); ic.clearColorFilter() }
             }
             projShownState = want
         }
