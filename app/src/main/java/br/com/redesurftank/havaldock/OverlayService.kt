@@ -73,6 +73,7 @@ class OverlayService : Service() {
     private var projForeground = false          // projeção está em foco no Display 0
     private var projShownState: String? = null  // estado do ícone atual ("car" ou o pacote)
     private var lastProjection: String? = null  // última projeção vista em foco (p/ mostrar o logo certo na central)
+    private var lastCentralApp: String? = null  // último app NÃO-projeção no topo do D0 (p/ voltar a ele)
 
     private val barHeightPx by lazy { dp(BAR_DP) }
     private val handleHeightPx by lazy { dp(HANDLE_DP) }
@@ -566,13 +567,16 @@ class OverlayService : Service() {
     // última vista em foco; senão CarPlay se estiver conectado (processo rodando).
     private fun refreshProjection() {
         io.execute {
-            val fg = ProjectionLauncher.foregroundProjection()
+            val raw = ProjectionLauncher.topPackage()
+            val fg = ProjectionLauncher.classifyProjection(raw)
             val conn: String?
             val isFg: Boolean
             if (fg != null) {
                 conn = fg; isFg = true; lastProjection = fg
             } else {
                 isFg = false
+                // topo do D0 é um app NÃO-projeção -> é a "última tela da central" p/ voltar depois
+                if (raw != null && raw != packageName) lastCentralApp = raw
                 conn = lastProjection
                     ?: (if (ProjectionLauncher.carPlayConnected()) ProjectionLauncher.CARPLAY_PKG else null)
                 if (conn != null) lastProjection = conn
@@ -610,7 +614,12 @@ class OverlayService : Service() {
         val conn = projConnected ?: return
         val goingBack = projForeground
         io.execute {
-            if (goingBack) ProjectionLauncher.goHome() else ProjectionLauncher.openProjection(conn)
+            if (goingBack) {
+                // volta pra última tela da central (não HOME); fallback HOME se não souber
+                lastCentralApp?.let { ProjectionLauncher.openApp(it) } ?: ProjectionLauncher.goHome()
+            } else {
+                ProjectionLauncher.openProjection(conn)
+            }
             Thread.sleep(600)
             refreshProjection()
         }
