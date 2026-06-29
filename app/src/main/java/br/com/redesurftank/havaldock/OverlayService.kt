@@ -615,8 +615,11 @@ class OverlayService : Service() {
         val goingBack = projForeground
         io.execute {
             if (goingBack) {
-                // volta pra última tela da central (não HOME); fallback HOME se não souber
-                lastCentralApp?.let { ProjectionLauncher.openApp(it) } ?: ProjectionLauncher.goHome()
+                // volta pra última tela da central (não HOME); fallback HOME se não souber/lançar
+                val comp = lastCentralApp?.let {
+                    runCatching { packageManager.getLaunchIntentForPackage(it)?.component?.flattenToString() }.getOrNull()
+                }
+                if (comp != null) ProjectionLauncher.openComponent(comp) else ProjectionLauncher.goHome()
             } else {
                 ProjectionLauncher.openProjection(conn)
             }

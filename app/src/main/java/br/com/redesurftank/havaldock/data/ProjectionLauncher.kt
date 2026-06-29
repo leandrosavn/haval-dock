@@ -50,9 +50,10 @@ object ProjectionLauncher {
         }
     }
 
-    /** Traz um app já existente pro foco (volta pra última tela dele). */
-    fun openApp(pkg: String) {
-        ShizukuShell.exec("monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1")
+    /** Traz um app pro foco pelo seu componente de launcher (volta pra última tela dele).
+     *  Usa `am start` (confiável via Shizuku) — o `monkey` não roda bem pelo newProcess. */
+    fun openComponent(component: String) {
+        ShizukuShell.exec("am", "start", "-f", "0x10000000", "-n", component)
     }
 
     /** CarPlay conectado (processo rodando), mesmo em background. */
