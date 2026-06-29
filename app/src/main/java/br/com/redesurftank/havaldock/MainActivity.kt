@@ -43,16 +43,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import br.com.redesurftank.havaldock.data.ProjectionLauncher
 import br.com.redesurftank.havaldock.data.SettingsStore
 import br.com.redesurftank.havaldock.data.VehicleClient
 import br.com.redesurftank.havaldock.update.UpdateManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import rikka.shizuku.Shizuku
 
 private val Accent = Color(0xFF19E3B1)
@@ -95,9 +90,6 @@ class MainActivity : ComponentActivity() {
         val secs by SettingsStore.autoHideSecs
         val boot by SettingsStore.launchOnBoot
 
-        val scope = rememberCoroutineScope()
-        var carplayDiag by remember { mutableStateOf<String?>(null) }
-        var projDetect by remember { mutableStateOf<String?>(null) }
 
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -152,53 +144,6 @@ class MainActivity : ComponentActivity() {
             SectionCard("Inicialização") {
                 RowSwitch("Religar ao ligar o carro", "Mostra a barra automaticamente no boot.", boot) {
                     SettingsStore.setLaunchOnBoot(it)
-                }
-            }
-
-            // ---- diagnóstico do patch do CarPlay ----
-            SectionCard("Diagnóstico CarPlay") {
-                Text(
-                    "Confirma se o patch do CarPlay (Impulse) está montado — é o que deixa o vídeo " +
-                        "encolher pra barra. Sem ele, o resize não tem efeito.",
-                    color = Muted, fontSize = 13.sp
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        carplayDiag?.let { Text(it, color = AccentSoft, fontSize = 13.sp) }
-                            ?: Text("Toque em Verificar.", color = Muted, fontSize = 13.sp)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            carplayDiag = "…"
-                            scope.launch {
-                                val md5 = withContext(Dispatchers.IO) { ProjectionLauncher.carPlayApkMd5() }
-                                carplayDiag = when (md5) {
-                                    null -> "Sem leitura (Shizuku ativo?)."
-                                    ProjectionLauncher.CARPLAY_PATCH_MD5 -> "Patch montado ✓"
-                                    else -> "CarPlay STOCK ✗ ($md5)"
-                                }
-                            }
-                        },
-                        enabled = shizukuReady
-                    ) { Text("Verificar") }
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Detecção da projeção", color = Color.White, fontSize = 15.sp)
-                        projDetect?.let { Text(it, color = AccentSoft, fontSize = 12.sp) }
-                            ?: Text("Mostra o que o dock detectou (topo do Display 0).", color = Muted, fontSize = 12.sp)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            projDetect = "…"
-                            scope.launch {
-                                projDetect = withContext(Dispatchers.IO) { ProjectionLauncher.detectDebug() }
-                            }
-                        },
-                        enabled = shizukuReady
-                    ) { Text("Detectar") }
                 }
             }
 

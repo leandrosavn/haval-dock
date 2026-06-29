@@ -72,24 +72,4 @@ object ProjectionLauncher {
     fun goHome() {
         ShizukuShell.exec("am", "start", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.HOME")
     }
-
-    /** Linha de diagnóstico de detecção (p/ ver no app, sem PC). */
-    fun detectDebug(): String {
-        val out = stackList() ?: return "am stack list: sem leitura (Shizuku?)"
-        val top = topOnDisplay0(out) ?: "(nenhum)"
-        val cpStack = if (out.lowercase().contains("carplay")) "sim" else "não"
-        val aaStack = if (out.lowercase().contains("androidauto")) "sim" else "não"
-        val cpPid = if (carPlayConnected()) "sim" else "não"
-        return "topo D0: $top\ncarplay no stack: $cpStack | androidauto: $aaStack | pidof carplay: $cpPid"
-    }
-
-    // ---- diagnóstico do patch do CarPlay (read-only) ----
-    private const val CARPLAY_SYSTEM_APK = "/system/app/TsCarPlayApp/TsCarPlayApp.apk"
-    /** md5 do APK patcheado v13 (se bater, o patch está montado). */
-    const val CARPLAY_PATCH_MD5 = "9d48c33f49dbeeb020c2fdc7e16bbc53"
-
-    fun carPlayApkMd5(): String? =
-        ShizukuShell.exec("md5sum", CARPLAY_SYSTEM_APK)?.trim()?.substringBefore(" ")?.takeIf { it.isNotBlank() }
-
-    fun isCarPlayPatchMounted(): Boolean = carPlayApkMd5() == CARPLAY_PATCH_MD5
 }
