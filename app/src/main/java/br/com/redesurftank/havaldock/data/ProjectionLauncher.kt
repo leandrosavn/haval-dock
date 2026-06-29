@@ -34,8 +34,14 @@ object ProjectionLauncher {
         return null
     }
 
+    /** Pacote no topo do Display 0 agora (cru), ou null. */
+    fun topPackage(): String? {
+        val out = stackList() ?: return null
+        return topOnDisplay0(out)
+    }
+
     /** Classifica um pacote como projeção (canônico) por like-matching, ou null. */
-    private fun classify(pkg: String?): String? {
+    fun classifyProjection(pkg: String?): String? {
         val t = (pkg ?: return null).lowercase()
         return when {
             t.contains("carplay") || t.contains("zlink") -> CARPLAY_PKG
@@ -44,10 +50,9 @@ object ProjectionLauncher {
         }
     }
 
-    /** Projeção EM FOCO no Display 0 agora (pacote canônico) ou null. */
-    fun foregroundProjection(): String? {
-        val out = stackList() ?: return null
-        return classify(topOnDisplay0(out))
+    /** Traz um app já existente pro foco (volta pra última tela dele). */
+    fun openApp(pkg: String) {
+        ShizukuShell.exec("monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1")
     }
 
     /** CarPlay conectado (processo rodando), mesmo em background. */
