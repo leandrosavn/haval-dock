@@ -36,6 +36,7 @@
   .sec{display:flex; align-items:center; gap:30px;}
   .sec1{margin-left:100px;}   /* grupo do meio mais perto do motorista */
   .sec2{margin-left:auto;}    /* passageiro empurrado p/ a direita */
+  .secfav{margin-left:auto;}  /* favoritas centralizadas entre condução e passageiro */
 
   /* botão de projeção (CarPlay/Android Auto) — tile na barra, logo após o fluxo de ar.
      Aparece sozinho quando há projeção conectada; ícone da marca; acende em ciano
@@ -121,6 +122,16 @@
   .lvlpop button:hover{border-color:var(--accent); color:var(--accent);}
   .lvlpop button.on{background:linear-gradient(180deg,var(--accent),#15b9c9); color:var(--onAccent); border-color:transparent; box-shadow:0 0 12px rgba(var(--glow),.35);}
 
+  /* favoritas do rádio (‹★ / ★›): só aparecem com o rádio tocando */
+  .fav .ic, .fav .ic svg{width:30px; height:30px;}
+  .favtoast{position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; align-items:center; gap:10px; z-index:8;
+            background:rgba(10,14,20,.97); border:1px solid var(--accent); border-radius:16px; padding:12px 20px;
+            box-shadow:0 14px 36px rgba(0,0,0,.6), 0 0 22px rgba(var(--glow),.25);
+            font-size:22px; font-weight:800; color:var(--txt); font-variant-numeric:tabular-nums;}
+  .favtoast.show{display:flex;}
+  .favtoast .st{color:var(--accent); font-size:18px;}
+  .favtoast small{font-size:13px; font-weight:700; letter-spacing:1px; color:var(--muted);}
+
   /* regeneração: raio verde + barras de nível */
   .regen{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:2px 4px;}
   .regen .ic{width:24px; height:24px; color:var(--green); display:grid; place-items:center;}
@@ -192,6 +203,9 @@
     <button data-c="none">Nenhuma</button>
     <button data-c="carplay">CarPlay</button>
     <button data-c="androidauto">Android Auto</button>
+    <span style="margin-left:14px">Rádio <small style="opacity:.6">(tecla R)</small>:</span>
+    <button data-r="1">Tocando</button>
+    <button data-r="0">Parado</button>
   </div>
 
   <div class="bar" id="bar"></div>
@@ -206,6 +220,7 @@
 
   <div class="airpop" id="airpop"></div>
   <div class="lvlpop" id="lvlpop"></div>
+  <div class="favtoast" id="favtoast"></div>
 
   <button class="reveal" id="reveal">&#9650; Haval Dock</button>
 
@@ -278,6 +293,9 @@
     steer:svg('<path d="M3 12a9 9 0 1 1 18 0a9 9 0 1 1-18 0"/><path d="M9.8 12a2.2 2.2 0 1 1 4.4 0a2.2 2.2 0 1 1-4.4 0"/><path d="M12 14.2V21"/><path d="M10.1 13.1L4.5 16.5"/><path d="M13.9 13.1l5.6 3.4"/>'),
     volume:svg('<path d="M4 9h3l4-3v12l-4-3H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/>'),
     bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L5 13h5l-1 9 9-12h-5l1-8z"/></svg>',
+    // favoritas do rádio: skip prev/next com estrela em cima (só aparecem com o rádio tocando)
+    favPrev: svg('<path fill="currentColor" stroke="none" d="M12 1.6l1.05 2.13 2.35.34-1.7 1.66.4 2.34L12 6.97l-2.1 1.1.4-2.34-1.7-1.66 2.35-.34z"/><path d="M7.5 10.5v9"/><path d="M17.5 10.5L11 15l6.5 4.5z" fill="currentColor"/>'),
+    favNext: svg('<path fill="currentColor" stroke="none" d="M12 1.6l1.05 2.13 2.35.34-1.7 1.66.4 2.34L12 6.97l-2.1 1.1.4-2.34-1.7-1.66 2.35-.34z"/><path d="M16.5 10.5v9"/><path d="M6.5 10.5L13 15l-6.5 4.5z" fill="currentColor"/>'),
     // recirculador — ícones por estado (SVGs do usuário, via máscara).
     // closed = ativo (recircula, sem ar externo); open = desligado (entra ar externo).
     recircClosed: '<span class="maskic" style="-webkit-mask-image:url(recirc_closed.svg);mask-image:url(recirc_closed.svg)"></span>',
@@ -313,6 +331,10 @@
     {sec:1, type:'mode',  icon:'steer', label:'Modo direção',  opts:[['Conforto','c'],['Normal','w'],['Esportiva','r']], idx:1},
     {sec:1, type:'regen', label:'Regeneração', opts:['Baixo','Normal','Alto'], idx:1},
 
+    // favoritas do rádio: grupo próprio, centralizado entre condução e passageiro
+    {sec:3, type:'favprev', icon:'favPrev', label:'Favorita anterior'},
+    {sec:3, type:'favnext', icon:'favNext', label:'Próxima favorita'},
+
     {sec:2, type:'temp',  label:'Temp. passageiro',   val:23.0, min:16, max:32, step:0.5},
     {sec:2, type:'level', icon:'seat',   label:'Ventil. passageiro', val:1, max:3},
     {sec:2, type:'vol',   icon:'volume', label:'Volume rádio',  val:14, max:30},
@@ -321,6 +343,32 @@
   // estado da projeção: conn = qual está conectada (none/carplay/androidauto);
   // active = a projeção está em foco agora (1º toque abre, 2º volta pro carro).
   const proj={ conn:'carplay', active:false };
+
+  // estado do rádio (no app: sys.radio.play_state + cur_channel_info + favoritos vindos do
+  // haval-radio via broadcast). Os botões de favorita só aparecem com playing=true.
+  const radio={ playing:true, favs:[76700,89100,89700,94700,98500,100900,101700,106300], curKHz:94700 };
+  const fmLabel=k=>(k/1000).toFixed(1);
+  function favStep(dir){
+    const f=radio.favs; if(!f.length) return;
+    let i=f.indexOf(radio.curKHz);
+    if(i<0){ // fora da lista: vai p/ a favorita mais próxima na direção pedida
+      i=dir>0 ? f.findIndex(k=>k>radio.curKHz) : (f.length-1-[...f].reverse().findIndex(k=>k<radio.curKHz));
+      if(i<0||i>=f.length||isNaN(i)) i=dir>0?0:f.length-1;
+      radio.curKHz=f[i];
+    } else {
+      radio.curKHz=f[(i+dir+f.length)%f.length];
+    }
+    favToast();
+  }
+  let favTimer=null;
+  function favToast(){
+    const t=document.getElementById('favtoast');
+    t.innerHTML='<span class="st">&#9733;</span>'+fmLabel(radio.curKHz)+'<small>MHz</small>';
+    t.classList.add('show');
+    if(favTimer) clearTimeout(favTimer);
+    if(location.hash!=='#fav')   // #fav = demo p/ captura: toast fica fixo
+      favTimer=setTimeout(()=>t.classList.remove('show'),1400);
+  }
 
   function updateProjBg(){
     const bg=document.getElementById('projbg');
@@ -333,8 +381,8 @@
 
   function render(){
     const bar=document.getElementById('bar'); bar.innerHTML='';
-    [0,1,2].forEach(s=>{
-      const sec=document.createElement('div'); sec.className='sec sec'+s;
+    [0,1,3,2].forEach(s=>{
+      const sec=document.createElement('div'); sec.className=(s===3?'sec secfav':'sec sec'+s);
       ITEMS.forEach((it,i)=>{ if(it.sec===s){ const t=tile(it,i); if(t) sec.appendChild(t); } });
       bar.appendChild(sec);
     });
@@ -342,6 +390,13 @@
   }
 
   function tile(it,i){
+    if(it.type==='favprev'||it.type==='favnext'){
+      if(!radio.playing) return null;   // só aparecem com o rádio tocando
+      const el=document.createElement('div'); el.className='ibtn fav'; el.title=it.label;
+      el.innerHTML='<span class="ic">'+ICONS[it.icon]+'</span>';
+      el.addEventListener('click',()=>{ favStep(it.type==='favnext'?1:-1); activity(); render(); });
+      return el;
+    }
     if(it.type==='proj'){
       if(proj.conn==='none') return null;   // só aparece quando há projeção conectada
       const brand=proj.conn==='carplay'?'CarPlay':'Android Auto';
@@ -408,17 +463,25 @@
   document.getElementById('bar').addEventListener('pointerdown',()=>activity(),true);
   render();
 
-  /* ---- simulador de projeção (só no protótipo) ---- */
+  /* ---- simulador de projeção + rádio (só no protótipo) ---- */
   (function(){
     const sim=document.getElementById('sim');
-    sim.querySelectorAll('button').forEach(b=>{
+    sim.querySelectorAll('button[data-c]').forEach(b=>{
       b.classList.toggle('on', b.dataset.c===proj.conn);
       b.addEventListener('click',()=>{
         proj.conn=b.dataset.c; proj.active=false;
-        sim.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+        sim.querySelectorAll('button[data-c]').forEach(x=>x.classList.toggle('on', x===b));
         activity(); render();
       });
     });
+    function syncRadioBtns(){
+      sim.querySelectorAll('button[data-r]').forEach(x=>x.classList.toggle('on', (x.dataset.r==='1')===radio.playing));
+    }
+    sim.querySelectorAll('button[data-r]').forEach(b=>{
+      b.addEventListener('click',()=>{ radio.playing=b.dataset.r==='1'; syncRadioBtns(); activity(); render(); });
+    });
+    syncRadioBtns();
+    addEventListener('keydown',e=>{ if(e.key==='r'||e.key==='R'){ radio.playing=!radio.playing; syncRadioBtns(); activity(); render(); } });
   })();
 
   /* ---- visibilidade: sempre / auto-ocultar (timer reseta a cada toque) ---- */
@@ -509,6 +572,7 @@
   })();
 
   if(location.hash==='#settings') settings.classList.add('show');
+  if(location.hash==='#fav') favToast();   // demo do toast (captura de tela)
   if(location.hash==='#vol'){ const v=ITEMS.find(x=>x.type==='vol'); if(v) openVol(v); }
 </script>
 </body>

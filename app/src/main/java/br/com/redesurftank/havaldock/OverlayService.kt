@@ -29,12 +29,14 @@ import br.com.redesurftank.havaldock.data.Airflow
 import br.com.redesurftank.havaldock.data.AirflowOption
 import br.com.redesurftank.havaldock.data.Control
 import br.com.redesurftank.havaldock.data.DockControls
+import br.com.redesurftank.havaldock.data.FavSkip
 import br.com.redesurftank.havaldock.data.HvacPanel
 import br.com.redesurftank.havaldock.data.IconToggle
 import br.com.redesurftank.havaldock.data.Level
 import br.com.redesurftank.havaldock.data.MaxAc
 import br.com.redesurftank.havaldock.data.Mode
 import br.com.redesurftank.havaldock.data.ProjectionLauncher
+import br.com.redesurftank.havaldock.data.RadioFavorites
 import br.com.redesurftank.havaldock.data.Regen
 import br.com.redesurftank.havaldock.data.RenderState
 import br.com.redesurftank.havaldock.data.SettingsStore
@@ -99,6 +101,16 @@ class OverlayService : Service() {
     private val requestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { broadcastBarState() }
     }
+    // Haval Radio publica a lista de favoritos (na mudança e quando pedimos via request()).
+    private val favReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == RadioFavorites.ACTION_FAVORITES)
+                RadioFavorites.update(
+                    intent.getStringExtra(RadioFavorites.EXTRA_FM),
+                    intent.getStringExtra(RadioFavorites.EXTRA_AM),
+                )
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -110,6 +122,7 @@ class OverlayService : Service() {
         SettingsStore.prefs(this).registerOnSharedPreferenceChangeListener(prefsListener)
         registerRequestReceiver()
         broadcastBarState()
+        io.execute { RadioFavorites.request() }   // pede a lista atual ao Haval Radio
         // re-lê o snapshot toda vez que a conexão com o veículo (re)estabelece — ex.: o Shizuku/serviço
         // sobe depois da barra no boot, ou o binder morre e reconecta. Substitui o antigo hack de
         // refreshAll() com postDelayed, que só mascarava a corrida.
@@ -133,8 +146,10 @@ class OverlayService : Service() {
         closeVolume()
         closeAirflow()
         closeLevel()
+        closeFavToast()
         runCatching { SettingsStore.prefs(this).unregisterOnSharedPreferenceChangeListener(prefsListener) }
         runCatching { unregisterReceiver(requestReceiver) }
+        runCatching { unregisterReceiver(favReceiver) }
         // barra saiu de cena: avisa quem reserva o rodapé p/ liberar o espaço
         runCatching { sendBroadcast(Intent(ACTION_BAR_STATE).putExtra(EXTRA_VISIBLE, false).putExtra(EXTRA_HEIGHT_DP, 0)) }
         VehicleClient.removeConnectionListener(onVehicleConnected)
@@ -191,13 +206,15 @@ class OverlayService : Service() {
     }
 
     private fun buildSections(content: LinearLayout) {
-        val secs = arrayOf(rowSection(), rowSection(), rowSection())
+        val secs = arrayOf(rowSection(), rowSection(), rowSection(), rowSection())
         for (c in DockControls.ALL) secs[c.section].addView(tile(c))
         secs[0].addView(projTile())   // atalho da projeção: após o fluxo de ar (grupo do motorista)
         content.addView(secs[0])
         content.addView(fixedSpacer(90))   // gap fixo: grupo do meio fica perto do motorista
         content.addView(secs[1])
-        content.addView(spacer())          // o restante da folga vai p/ a direita (passageiro encosta na borda)
+        content.addView(spacer())          // 2 spacers iguais: favoritas centralizadas na folga
+        content.addView(secs[3])           // favoritas do rádio (só aparecem com o rádio tocando)
+        content.addView(spacer())
         content.addView(secs[2])
     }
 
@@ -223,6 +240,7 @@ class OverlayService : Service() {
         is Mode -> tileMode(c)
         is Regen -> tileRegen(c)
         is Airflow -> tileAirflow(c)
+        is FavSkip -> tileFav(c)
     }
 
     private fun gap(v: View, start: Int) { (v.layoutParams as LinearLayout.LayoutParams).marginStart = dp(start) }
@@ -337,6 +355,25 @@ class OverlayService : Service() {
             LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
         updaters[c.id] = { st -> ic.setColorFilter(st.color); tv.text = st.text; tv.setTextColor(st.color) }
         v.setOnClickListener { act(c) { c.next() } }
+        return v
+    }
+
+    /** Favorita anterior/próxima do rádio: só aparece com o rádio tocando (GONE senão). */
+    private fun tileFav(c: FavSkip): View {
+        val v = col(); v.isClickable = true
+        v.addView(icon(c.icon, cTxt, 30))
+        v.visibility = View.GONE
+        updaters[c.id] = { st -> v.visibility = if (st.on) View.VISIBLE else View.GONE }
+        v.setOnClickListener {
+            onUserActivity()
+            io.execute {
+                val tuned = runCatching { c.step() }.getOrNull()
+                main.post {
+                    if (tuned != null) showFavToast(RadioFavorites.label(tuned.first, tuned.second))
+                    else showFavToast("Sem favoritas", star = false)
+                }
+            }
+        }
         return v
     }
 
@@ -528,6 +565,42 @@ class OverlayService : Service() {
 
     private fun closeLevel() { levelWin?.let { v -> runCatching { wm.removeView(v) } }; levelWin = null }
 
+    // ---- toast da favorita sintonizada (★ 94.7 MHz) ----
+
+    private var favToastWin: View? = null
+    private val favToastHide = Runnable { closeFavToast() }
+
+    private fun showFavToast(text: String, star: Boolean = true) {
+        closeFavToast()
+        val tv = TextView(this).apply {
+            this.text = if (star) android.text.SpannableString("★ $text").also {
+                it.setSpan(android.text.style.ForegroundColorSpan(cAccent), 0, 1,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } else text
+            setTextColor(cTxt); textSize = 20f; setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER; background = pill(cBarBg, dp(16))
+            setPadding(dp(22), dp(12), dp(22), dp(12))
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,   // toast: não intercepta toque
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = barHeightPx + dp(8) }
+        runCatching { wm.addView(tv, lp); favToastWin = tv }
+        main.postDelayed(favToastHide, 1400)
+    }
+
+    private fun closeFavToast() {
+        main.removeCallbacks(favToastHide)
+        favToastWin?.let { runCatching { wm.removeView(it) } }
+        favToastWin = null
+    }
+
     // ---- ações / refresh ----
 
     private fun act(c: Control, action: () -> Unit) {
@@ -654,6 +727,7 @@ class OverlayService : Service() {
         closeVolume()
         closeAirflow()
         closeLevel()
+        closeFavToast()
         hidden = true; bar.visibility = View.GONE; handle.visibility = View.VISIBLE
         params.height = handleHeightPx; runCatching { wm.updateViewLayout(root, params) }
         broadcastBarState()
@@ -676,6 +750,11 @@ class OverlayService : Service() {
             registerReceiver(requestReceiver, filter, Context.RECEIVER_EXPORTED)
         else
             @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(requestReceiver, filter)
+        val favFilter = IntentFilter(RadioFavorites.ACTION_FAVORITES)
+        if (Build.VERSION.SDK_INT >= 33)
+            registerReceiver(favReceiver, favFilter, Context.RECEIVER_EXPORTED)
+        else
+            @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(favReceiver, favFilter)
     }
 
     // ---- utils ----
