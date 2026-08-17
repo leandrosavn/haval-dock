@@ -27,6 +27,9 @@ object DockKeys {
     const val REGEN_LEVEL = "car.ev_setting.energy_recovery_level"
     const val MEDIA_VOLUME = "sys.settings.audio.media_volume"
     const val MEDIA_VOLUME_RANGE = "sys.settings.audio.media_volume_range"
+    // Rádio (chaves confirmadas no recon do Haval Radio)
+    const val RADIO_PLAY_STATE = "sys.radio.play_state"          // 0/1
+    const val RADIO_CHANNEL = "sys.radio.cur_channel_info"       // {freqKHz,banda,play,estéreo}
 }
 
 /** Cores do tema v2 (ARGB int — sem dependência de android no data layer). */
@@ -194,6 +197,35 @@ class Regen(id: String, section: Int, label: String, @DrawableRes val icon: Int,
     }
 }
 
+/**
+ * Favorita anterior/próxima do rádio (dir=-1/+1). Só visível com o rádio tocando (render().on);
+ * percorre a lista do Haval Radio (cache em [RadioFavorites]) e sintoniza escrevendo
+ * cur_channel_info — com o rádio já tocando a troca sai com som (foco de áudio já é do rádio).
+ */
+class FavSkip(id: String, section: Int, label: String, @DrawableRes val icon: Int, val dir: Int) :
+    Control(id, section, label) {
+    fun playing() = VehicleClient.getData(DockKeys.RADIO_PLAY_STATE)?.trim() == "1"
+    override fun render() = RenderState(on = playing(), icon = icon)
+
+    /** Sintoniza a favorita vizinha; retorna (kHz, banda) sintonizados ou null (sem lista/canal). */
+    fun step(): Pair<Int, Int>? {
+        val ch = RadioFavorites.parseChannel(VehicleClient.getData(DockKeys.RADIO_CHANNEL)) ?: return null
+        val favs = RadioFavorites.list(ch.band)
+        if (favs.isEmpty()) return null
+        val i = favs.indexOf(ch.freqKHz)
+        val target = if (i >= 0) {
+            favs[(i + dir).mod(favs.size)]   // na lista: vizinha na ordem do usuário (com volta)
+        } else {
+            // fora da lista: favorita mais próxima na direção pedida (em frequência), com volta
+            val sorted = favs.sorted()
+            if (dir > 0) sorted.firstOrNull { it > ch.freqKHz } ?: sorted.first()
+            else sorted.lastOrNull { it < ch.freqKHz } ?: sorted.last()
+        }
+        VehicleClient.set(DockKeys.RADIO_CHANNEL, "{$target,${ch.band},0,0}")
+        return Pair(target, ch.band)
+    }
+}
+
 /** Estado persistente do Max A/C (não há flag nativa nesse carro — guardamos local). */
 object MaxAcStore {
     private const val PREFS = "maxac"
@@ -269,6 +301,9 @@ object DockControls {
             mapOf(2 to "Conforto", 0 to "Normal", 1 to "Esportiva"),
             mapOf(2 to DockColors.CYAN, 0 to DockColors.WHITE, 1 to DockColors.RED)),
         Regen("regen", 1, "Regeneração", R.drawable.ic_bolt, DockKeys.REGEN_LEVEL, listOf(2, 0, 1)),
+        // ----- FAVORITAS DO RÁDIO (grupo próprio, centralizado; só com o rádio tocando) -----
+        FavSkip("favPrev", 3, "Favorita anterior", R.drawable.ic_fav_prev, -1),
+        FavSkip("favNext", 3, "Próxima favorita", R.drawable.ic_fav_next, +1),
         // ----- DIREITA (passageiro + volume) -----
         Temp("tempP", 2, "Temp. passageiro", DockKeys.PASS_TEMP, 16.0, 32.0, 0.5, DockKeys.FRONT_TEMP_RANGE),
         Level("ventP", 2, "Ventil. passageiro", R.drawable.ic_seat, DockKeys.PASS_SEAT_VENT, 3, DockKeys.SEAT_VENT_MAX),
@@ -280,5 +315,6 @@ object DockControls {
         DockKeys.PASS_SEAT_VENT, DockKeys.AUTO, DockKeys.SYNC, DockKeys.CYCLE_MODE,
         DockKeys.BLOWER_MODE, DockKeys.FRONT_DEFROST,
         DockKeys.DRIVE_MODE, DockKeys.STEER_MODE, DockKeys.REGEN_LEVEL, DockKeys.MEDIA_VOLUME,
+        DockKeys.RADIO_PLAY_STATE, DockKeys.RADIO_CHANNEL,
     )
 }
